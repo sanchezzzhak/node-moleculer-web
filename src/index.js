@@ -10,5 +10,5 @@ broker.loadServices(
 );
 
 broker.start().then(() => {
-
+  console.log('broker started');
 });
