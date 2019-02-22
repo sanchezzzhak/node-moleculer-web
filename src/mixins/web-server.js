@@ -167,13 +167,13 @@ module.exports = (options) => ({
 	  }
 	  return null;
 	},
- 
+	
 	/**
 	 * Call an action via broker
 	 *
-	 * @param {Object} route 		Route options
-	 * @param {RequestData} req 	Request object
-	 * @param {ResponseData} res 	Response object
+	 * @param {Object} route        Route options
+	 * @param {RequestData} req    Request object
+	 * @param {ResponseData} res    Response object
 	 * @returns {Promise}
 	 */
 	async callAction(ctx, route, req, res) {
@@ -189,11 +189,11 @@ module.exports = (options) => ({
 		}
 	  })
 	  // Call the action
-	  .then(() =>  ctx.call(req.$endpoint, {req: req, res: res}, route.callOptions))
+	  .then(() => ctx.call(req.$endpoint, {req: req, res: res}, route.callOptions))
 	  // Post-process the response
 	  .then(data => {
 		// onAfterCall handling
-		if (route.onAfterCall){
+		if (route.onAfterCall) {
 		  return route.onAfterCall.call(this, ctx, route, req, res, data);
 		}
 		return data;
@@ -269,14 +269,14 @@ module.exports = (options) => ({
 	  route.callOptions = opts.callOptions;
 	  
 	  // `onBeforeCall` handler
-	  if (opts.onBeforeCall){
+	  if (opts.onBeforeCall) {
 		route.onBeforeCall = this.Promise.method(opts.onBeforeCall);
 	  }
 	  // `onAfterCall` handler
-	  if (opts.onAfterCall){
+	  if (opts.onAfterCall) {
 		route.onAfterCall = this.Promise.method(opts.onAfterCall);
 	  }
-
+	  
 	  
 	  // `onError` handler
 	  if (opts.onError)
@@ -284,7 +284,7 @@ module.exports = (options) => ({
 	  
 	  return route;
 	},
- 
+	
 	/**
 	 * Send 302 Redirect
 	 *
@@ -297,12 +297,12 @@ module.exports = (options) => ({
 	},
 	
 	sendResponse(ctx, req, res, data) {
-	   const route = req.$route;
-
+	  const route = req.$route;
+	  
 	  /* istanbul ignore next */
 	  // if (!res.statusCode)
-		res.statusCode = 200;
-
+	  res.statusCode = 200;
+	  
 	  // Status code & message
 	  if (ctx.meta.$statusCode) {
 		res.statusCode = ctx.meta.$statusCode;
@@ -310,7 +310,7 @@ module.exports = (options) => ({
 	  if (ctx.meta.$statusMessage) {
 		res.statusMessage = ctx.meta.$statusMessage;
 	  }
-
+	  
 	  if (res.statusCode >= 300 && res.statusCode < 400 && res.statusCode !== 304) {
 		const location = ctx.meta.$location;
 		/* istanbul ignore next */
@@ -334,14 +334,14 @@ module.exports = (options) => ({
 		chunk = JSON.stringify(data);
 	  } else {
 		res.setHeader("Content-Type", responseType);
-		if (_.isString(data)){
+		if (_.isString(data)) {
 		  chunk = data;
 		} else {
 		  chunk = data.toString();
 		}
 	  }
 	  
-	  if (data === null){
+	  if (data === null) {
 		res.end();
 		return;
 	  }
@@ -356,7 +356,7 @@ module.exports = (options) => ({
 	
 	createHttpServer() {
 	  
-	  this.server = Http.createServer(async (req, res) =>  {
+	  this.server = Http.createServer(async (req, res) => {
 		await this.httpHandler(req, res);
 	  });
 	  
@@ -383,7 +383,7 @@ module.exports = (options) => ({
 	  return await this.actions.rest({req, res})
 	  .then(result => {
 		if (result === null) {
-		  res.end('Cannot '+ req.getMethod()  +': ' + req.getUrl());
+		  res.end('Cannot ' + req.getMethod() + ': ' + req.getUrl());
 		}
 	  }).catch(err => {
 		this.logger.error(err);

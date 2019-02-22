@@ -11,7 +11,7 @@ module.exports = {
 	"hello": {
 	  async handler(ctx) {
 		let result = 'hello my fiend, method! ' + ' ' + ctx.params.req.getUrl();
-		return result + ' <br> prams:' + JSON.stringify(ctx.params.req.getParams());
+		return result + ' <br> prams: ' + JSON.stringify(ctx.params.req.getParams());
 	  }
 	},
   },
