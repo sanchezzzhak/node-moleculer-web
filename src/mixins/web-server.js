@@ -30,7 +30,7 @@ function decodeRouterParam(val) {
   }
 }
 
-module.exports = {
+module.exports = (options) => ({
   name: 'web-server',
   actions: {
 	rest: {
@@ -65,9 +65,9 @@ module.exports = {
 	}
   },
   settings: {
-	driver: 'http',
-	port: 3015,
-	ip: '127.0.0.1',
+	driver: options.driver,
+	port: options.port,
+	ip: options.ip,
 	routes: [],
   },
   created() {
@@ -399,4 +399,4 @@ module.exports = {
 	},
   }
   
-};
+});

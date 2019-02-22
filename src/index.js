@@ -1,7 +1,7 @@
 const { resolve } = require('path');
 const { ServiceBroker } = require('moleculer');
 
-const config = require('moleculer.config.js');
+const config = require('./moleculer.config.js');
 
 const broker = new ServiceBroker(config);
 
