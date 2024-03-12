@@ -1,14 +1,7 @@
-const { resolve } = require('path');
-const { ServiceBroker } = require('moleculer');
+const UwsService = require('./uws-server')
+const AbstractController = require('./abstract-controller')
 
-const config = require('./moleculer.config.js');
-
-const broker = new ServiceBroker(config);
-
-broker.loadServices(
-  resolve(__dirname, 'services'), '*.service.js',
-);
-
-broker.start().then(() => {
-  console.log('broker started');
-});
+module.exports = {
+	UwsService,
+	AbstractController
+}
