@@ -1,5 +1,7 @@
 const Uws = require('uWebSockets.js');
+const fsPath = require('node:path');
 const getNextOpenPort = require('./utils/get-next-open-port');
+const uwsSendFile = require('./utils/uws-send-file');
 
 /**
  * Decode param value.
@@ -33,20 +35,20 @@ const UwsServer = {
 		ssl: {},
 		ip: '127.0.0.1',
 		publicDir: null,
+		publicIndex: false, //'index.html'
 		portSchema: 'node',
 		routes: [],
 		controllers: {}
 	},
 
 	async created() {
-		console.log('this.settions', this.settings)
 		this.initServer();
 		return Promise.resolve();
 	},
 
 	async started() {
 		const nodeRe = /(\d+)$/i.exec(this.broker.nodeID);
-		const nodeId = nodeRe !== null ? Number(nodeRe[0]): 0;
+		const nodeId = nodeRe !== null ? Number(nodeRe[0]) : 0;
 
 		if (this.settings.portSchema === PORT_SCHEMA_AUTO) {
 			this.settings.port = await getNextOpenPort(Number(this.settings.port));
@@ -106,6 +108,24 @@ const UwsServer = {
 			}
 		},
 
+		bindRoutesStatic() {
+			const rootDir = this.settings.publicDir;
+			const indexFile = this.settings.publicIndex ? fsPath.join(rootDir, this.settings.publicIndex) : false;
+
+			if (rootDir) {
+				this.getServerUws().get('/*',  (res, req) => {
+					const options = {};
+					const path = req.getUrl();
+					if (path === '/' && indexFile) {
+						options.path = indexFile
+					} else {
+						options.path = fsPath.join(rootDir, path)
+					}
+					return uwsSendFile(res, req, options)
+				});
+			}
+		},
+
 		/**
 		 * bind native uws routers for array
 		 */
@@ -139,7 +159,11 @@ const UwsServer = {
 					}
 				});
 			});
+
+
+			this.bindRoutesStatic();
 		},
+
 
 		/**
 		 * Get instance UwsServer server

@@ -1,6 +1,5 @@
 const {createBrotliCompress, createGzip, createDeflate} = require('zlib');
 const {existsSync, statSync, createReadStream} = require('fs');
-const fsPath = require('path');
 const {getMime} = require("./mime");
 
 
@@ -27,14 +26,13 @@ function writeHeaders(res, headers) {
 }
 
 /**
- *
  * @param {HttpRequest} req
  * @param {HttpResponse} res
  * @param {*} options
  * @return {Promise<*>}
  * https://github.com/sifrr/sifrr/blob/master/packages/server/sifrr-server/src/server/sendfile.ts
  */
-async function uwsSendFile(req, res, options = {}) {
+async function uwsSendFile(res, req, options = {}) {
   options = Object.assign(defaultOptions, options);
   let path = options.path;
   if (path === void 0) {
@@ -85,12 +83,12 @@ async function uwsSendFile(req, res, options = {}) {
     headers['accept-ranges'] = 'bytes';
     headers['content-range'] = `bytes ${start}-${end}/${size}`;
     size = end - start + 1;
-    res.writeStatus('206 Partial Content');
   }
 
   if (end < 0) end = 0;
   let readStream = createReadStream(path, {start, end});
   let compressed = false;
+	options.compress - false;
   if (options.compress) {
     const l = options.compressionOptions.priority.length;
     for (let i = 0; i < l; i++) {
@@ -106,13 +104,20 @@ async function uwsSendFile(req, res, options = {}) {
     }
   }
   res.onAborted(() => readStream.destroy());
-  writeHeaders(res, headers);
+	res.cork(() => {
+		writeHeaders(res, headers);
+		range && res.writeStatus('206 Partial Content');
+	})
+
 
   if (compressed) {
     readStream.on('data', buffer => {
-      res.write(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+			res.cork(() => {
+				res.write(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+			})
     });
   } else {
+
     readStream.on('data', buffer => {
       const chunk = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
           lastOffset = res.getWriteOffset();
@@ -130,28 +135,35 @@ async function uwsSendFile(req, res, options = {}) {
         res.ab = chunk;
         res.abOffset = lastOffset;
 
-        // Register async handlers for drainage
-        res.onWritable(offset => {
-          const [ok, done] = res.tryEnd(res.ab.slice(offset - res.abOffset), size);
-          if (done) {
-            readStream.destroy();
-          } else if (ok) {
-            readStream.resume();
-          }
-          return ok;
-        });
+				res.cork(() => {
+					// Register async handlers for drainage
+					res.onWritable(offset => {
+						const [ok, done] = res.tryEnd(res.ab.slice(offset - res.abOffset), size);
+						if (done) {
+							readStream.destroy();
+						} else if (ok) {
+							readStream.resume();
+						}
+						return ok;
+					});
+				})
+
       }
     });
   }
   readStream
       .on('error', e => {
-        res.writeStatus('500 Internal server error');
-        res.end();
+				res.cork(() => {
+					res.writeStatus('500 Internal server error');
+					res.end();
+				});
         readStream.destroy();
         // throw e;
       })
       .on('end', () => {
-        res.end();
+				res.cork(() => {
+					res.end();
+				});
       });
 
 

@@ -1,0 +1,14 @@
+node_modules/
+tests/
+demo/
+.npmignore
+.github/
+.yamllint
+.eslintrc.cjs
+.idea/
+.prettierrc.json
+.prettierignore
+.gitattributes
+.nyc_output
+coverage/
+docs/
