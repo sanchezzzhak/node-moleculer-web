@@ -1,16 +1,31 @@
 {
   "name": "node-molecular-web",
   "version": "1.0.0",
-  "description": "Fast web app service for moleculer.js",
+  "description": "Fast web app service for moleculer.js + uWebSockets.js",
   "main": "src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanchezzzhak/node-moleculer-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sanchezzzhak/node-moleculer-web/issues"
+  },
+  "homepage": "https://github.com/sanchezzzhak/node-moleculer-web#readme",
   "dependencies": {
     "ejs": "^3.1.9",
     "moleculer": "^0.14.32",
-    "path-to-regexp": "^6.2.1",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.42.0"
   },
+  "engines": {
+    "node": ">= 20.x",
+    "npm": ">= 10.x"
+  },
   "scripts": {},
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "gateway-api",
+    "webserver",
+    "moleculer.js"
+  ],
+  "author": "sanchezzzhak",
   "license": "ISC"
 }
