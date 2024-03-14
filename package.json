@@ -1,5 +1,5 @@
 {
-  "name": "node-molecular-web",
+  "name": "node-moleculer-web",
   "version": "1.0.0",
   "description": "Fast web app service for moleculer.js + uWebSockets.js",
   "main": "src/index.js",
