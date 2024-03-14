@@ -1,4 +1,4 @@
-const {UwsService} = require('../../src/index');
+const {UwsServer} = require('../../src/index');
 const {Service} = require('moleculer');
 
 const HomeController = require('../controllers/home');
@@ -19,7 +19,7 @@ class AppService extends Service {
 				}
 			},
 			mixins: [
-				UwsService
+				UwsServer
 			],
 			created: this.createService
 		})

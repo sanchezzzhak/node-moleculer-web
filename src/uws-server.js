@@ -73,12 +73,8 @@ const UwsServer = {
 		await this.listenServer();
 	},
 
-	stopped() {
-	},
 
 	methods: {
-
-
 		/**
 		 * 	// formats for string:
 		 * 	// get url #s:service.action     - service.action

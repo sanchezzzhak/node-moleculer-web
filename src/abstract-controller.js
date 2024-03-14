@@ -56,14 +56,15 @@ class AbstractController {
 	/** @type {ServiceBroker} broker */
 	broker;
 
+	clientHints = false;
+
 	constructor(opts = {}) {
 		this.broker = opts.broker;
 		this.req = opts.req;
 		this.res = opts.res;
-		this.route = opts.route ?? {};
 		this.timer = new Timer;
 		this.timer.start();
-		this.clientHints = false;
+
 	}
 
 	initRequest() {
@@ -131,7 +132,7 @@ class AbstractController {
 	 * @return {any}
 	 */
 	isAborted() {
-		return this.res.aborted;
+		return !!this.res.aborted;
 	}
 
 	/**

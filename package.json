@@ -1,6 +1,6 @@
 {
   "name": "node-molecular-web",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Fast web app service for moleculer.js",
   "main": "src/index.js",
   "dependencies": {

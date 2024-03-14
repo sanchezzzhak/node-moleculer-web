@@ -7,14 +7,18 @@ node-moleculer-web
 ```
 npm install node-moleculer-web --save
 ```
-or
+или
 ```
 yarn add node-moleculer-web
+```
+или
+```
+npm i github:sanchezzzhak/node-moleculer-web#v1.0.0
 ```
 
 ### Использовать
 1 Создать контроллер в папке controllers/home.js
-```ecmascript 6
+```js
 const {AbstractController} = require('node-moleculer-web');
 
 class HomeController extends AbstractController {
@@ -29,8 +33,8 @@ module.exports = HomeController
 
 2 Создать сервис в папке services/app.service.js
 
-```ecmascript 6
-const {UwsService} = require('node-moleculer-web');
+```js
+const {UwsServer} = require('node-moleculer-web');
 const {Service} = require('moleculer');
 
 const HomeController = require('../controllers/home');
@@ -51,13 +55,13 @@ class AppService extends Service {
 				portSchema: 'node',              
                 // если статика не нужна просто удалите этот параметр
 				publicDir: __dirname + '/../public',  
-                // Список контролеров
+                // cписок контролеров
 				controllers: {
 				   home: HomeController
 				}
 			},
 			mixins: [
-			   UwsService
+			   UwsServer
 			],
 			created: this.createService
 		})
@@ -131,8 +135,8 @@ server {
 }
 
 ```
-Конфиг для кластера
-```ecmascript 6
+Конфиг для кластера moleculer.config.js
+```js
 module.exports = {
 	nodeID: 'DEMO',
 	transporter: "TCP",
@@ -145,3 +149,4 @@ module.exports = {
 	logger: console
 };
 ```
+
