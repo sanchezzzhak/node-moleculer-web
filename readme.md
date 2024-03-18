@@ -80,12 +80,6 @@ module.exports = AppService
 ### NGINX config if request proxying is used for once instance
 ```ngnix
 server {
-  
-   map $http_upgrade $connection_upgrade {  
-    default upgrade;
-    ''      close;
-   } 
-
     listen 80;
     listen 443 ssl;
     listen [::]:80;
@@ -95,8 +89,6 @@ server {
   
     location / {
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -127,11 +119,6 @@ upstream node_apps {
 
 server {
 
-   map $http_upgrade $connection_upgrade {  
-    default upgrade;
-    ''      close;
-   } 
-
   listen 80;
   listen 443 ssl;
   listen [::]:80;
@@ -141,8 +128,6 @@ server {
   
   location / {
        proxy_http_version 1.1;
-       proxy_set_header Upgrade $http_upgrade;
-       proxy_set_header Connection $connection_upgrade;
        proxy_set_header Host $http_host;
        proxy_set_header X-Real-IP $remote_addr;
        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
