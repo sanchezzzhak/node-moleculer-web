@@ -74,6 +74,29 @@ export class RequestData {
     constructor(req: HttpRequest, res: HttpResponse)
 }
 
+export interface CookieOptions {
+    path?: string;
+    domain?: string;
+    sameSite?: "strict" | "lax" | "none";
+    priority?: "low" | "medium" | "high";
+    expires?: Date|number|string;
+    maxAge?: number;
+    secure?: boolean;
+    httpOnly?: boolean;
+    partitioned?: boolean;
+}
+
+export class CookieData {
+    reqs: {};
+    resp: {};
+    set(name: string, value: any, options?: CookieOptions): void;
+    get(name: string, defaultValue?: any): any;
+    has(name: string): boolean;
+    remove(name: string, options?: CookieOptions): void;
+    toHeader(name: string): string;
+    constructor(req: HttpRequest, res: HttpResponse)
+}
+
 export interface AbstractControllerOptions {
     broker: ServiceBroker;
     req: HttpRequest;
@@ -82,6 +105,7 @@ export interface AbstractControllerOptions {
 
 export class AbstractController {
     requestData: RequestData;
+    cookieData: CookieData;
     format: string;
     statusCode: number;
     statusCodeText: string;

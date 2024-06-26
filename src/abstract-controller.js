@@ -3,7 +3,7 @@ const {getMime} = require('./utils/mime');
 const HTTP_CODES = require('./utils/http-codes');
 const Timer = require("./utils/timer");
 const RequestData = require("./request-data");
-
+const CookieData = require("./cookie-data");
 
 /** @typedef {import("uWebSockets.js").HttpRequest} HttpRequest */
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
@@ -40,11 +40,11 @@ const readBody = (res, cb, err) => {
 	res.onAborted(err);
 };
 
-
-
 class AbstractController {
 	/** @type {RequestData|null} */
 	requestData = null;
+	/** @type {CookieData|null} */
+	cookieData = null;
 	format = 'html';
 	statusCode = 200;
 	statusCodeText = '200 OK';
@@ -69,6 +69,7 @@ class AbstractController {
 
 	initRequest() {
 		this.requestData = new RequestData(this.req, this.res);
+		this.cookieData = new CookieData(this.req, this.res);
 		if (this.clientHints) {
 			this.setClientHintsHeaders();
 		}
@@ -90,10 +91,10 @@ class AbstractController {
 	/**
 	 * final response as JSON
 	 * @param {JSONObject} obj
-	 * @param {number} statusCode
+	 * @param {number} httpCode
 	 */
-	asJson(obj, statusCode = 200) {
-		return this.renderRaw({view: JSON.stringify(obj), statusCode, format: 'json'});
+	asJson(obj, httpCode = 200) {
+		return this.renderRaw({view: JSON.stringify(obj), httpCode, format: 'json'});
 	}
 
 	writeHeader(key, value) {

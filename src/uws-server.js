@@ -149,6 +149,11 @@ const UwsServer = {
 									res.writeHeader(key, controller.headers[key]);
 								}
 							}
+							if (controller !== null && controller.cookieData) {
+								for (let key in controller.cookieData.resp) {
+									res.writeHeader('set-cookie', controller.cookieData.toHeader(key));
+								}
+							}
 							controller !== null && controller.statusCodeText && res.writeStatus(controller.statusCodeText);
 							res.end(result);
 						});

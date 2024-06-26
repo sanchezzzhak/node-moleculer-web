@@ -3,6 +3,10 @@ const {AbstractController} = require('../../src/index');
 class HomeController extends AbstractController {
 
 	async index() {
+		this.initRequest();
+		this.cookieData.set('server-test-cookie', '1', {
+			expires: new Date() + 36000
+		})
 		return this.renderRaw({
 			view: `<!DOCTYPE html>
 			<html>
@@ -21,9 +25,10 @@ class HomeController extends AbstractController {
 	}
 
 	async about() {
-		return 'page about';
+		this.initRequest();
+		let cookieValue = this.cookieData.get('server-test-cookie', '0');
+		return 'page about cookie value ' + cookieValue;
 	}
-
 
 	async test() {
 		return this.redirect('/about');
