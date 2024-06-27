@@ -64,7 +64,7 @@ class CookieData {
 	 * @return {null}
 	 */
 	get(name, defaultValue = null) {
-		return this.reqs[name].value ?? defaultValue;
+		return this.reqs[name]?.value ?? defaultValue;
 	}
 
 	/**
