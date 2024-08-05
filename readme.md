@@ -1,6 +1,8 @@
 node-moleculer-web
 ---
-Documentation [RU](readme-ru.md)
+* This is an adapter http-server for the MolecularJs framework
+* Server based on https://github.com/uNetworking/uWebSockets.js
+
 
 ### Install
 
@@ -13,7 +15,7 @@ yarn add node-moleculer-web
 ```
 or
 ```
-npm i github:sanchezzzhak/node-moleculer-web#v1.0.0
+npm i github:sanchezzzhak/node-moleculer-web#v1.1.4
 ```
 
 ### Uses
@@ -43,13 +45,13 @@ class AppService extends Service {
       name: 'app',
       settings: {
           // base port for server
-          port: 3001,
+          port: process.evn.SERVER_PORT ?? 3101,
             // on what ip to listen
-          ip: '127.0.0.1',
+          ip: process.evn.SERVER_IP ?? '127.0.0.1',
           // web-service registration type
             // node (ports will be assigned +1 from the current one)
             // auto (ports will be assigned +1 from the current one if the port is free)
-          portSchema: 'node',              
+          portSchema: process.evn.SERVER_SCHEMA ?? 'node',              
             // if statics are not needed, just remove this parameter
           publicDir: __dirname + '/../public',  
             // list of controllers
@@ -71,6 +73,120 @@ class AppService extends Service {
   }
 }
 module.exports = AppService
+```
+
+### Format bind route
+* `<request type> / #c:<controller name>.<action>`
+* `<request type> / #s:<service name>.<action>`
+* allowed request types:
+* `any` - HTTP ALL
+* `connect` - HTTP CONNECT
+* `del` - HTTP DELETE
+* `get` - HTTP GET
+* `head` - HTTP HEAD
+* `options` - HTTP OPTIONS
+* `patch` - HTTP PATCH
+* `post` - HTTP POST
+* `put` - HTTP PUT
+* `trace` - HTTP TRACE
+
+### Controller API
+
+* requestData - read request data / write headers
+* cookieData - read/write cookie
+
+response json object
+```js
+class Home extends AbstractController {
+	index() {
+		return this.asJson({}, 200);
+	}
+}
+```
+response redirect to other url
+```js
+class Home extends AbstractController {
+	index() {
+		return this.redirect('https://youdomain.dev', 301);
+	}
+}
+```
+response ejs template
+```js
+class Home extends AbstractController {
+	index() {
+		return this.render({
+      template, params, httpCode: 200, format: 'html'
+    });
+	}
+}
+```
+response raw
+```js
+class Home extends AbstractController {
+	index() {
+		return this.renderRaw({view: 'string', httpCode: 200, format: 'html'});
+	}
+}
+```
+or
+```js
+class Home extends AbstractController {
+	index() {
+		return 'Hello World'
+	}
+}
+```
+Read or Write Cookie
+```js
+class Home extends AbstractController {
+	async index() {
+		this.initRequest();
+		// read
+		const cookievalue= this.cookieData.get('my_cookievalue', 1*new Date);
+		// write
+    this.cookieData.set('my_cookievalue', cookievalue)
+
+		return cookievalue;
+	}
+}
+```
+get request data
+```js
+class Home extends AbstractController {
+	async index() {
+		this.initRequest();
+		const headers = this.requestData.headers;
+		const ip = this.requestData.ip;
+		const query = this.requestData.query ?? {};
+		const referer = this.requestData.referer;
+		const currentUrl = this.requestData.url;
+		const userAgent = this.requestData.userAgent;
+		
+		return this.asJson({headers, ip, query, referer, currentUrl, userAgent}, 200);
+	}
+}
+```
+call another microservice service in controller
+```js
+class Home extends AbstractController {
+	async index() {
+		const data = await this.broker.call('service-name.action', {
+			email: 'test'
+    }) ?? {};
+		
+		return this.asJson(data, 200);
+	}
+}
+```
+read post body
+```js
+class Home extends AbstractController {
+	async index() {
+		const body = await this.readBody();
+		return this.asJson({body}, 200);
+	}
+}
 ```
 
 ### NGINX config if request proxying is used for once instance
