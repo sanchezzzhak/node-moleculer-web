@@ -1,9 +1,11 @@
 const ejs = require('ejs');
 const {getMime} = require('./utils/mime');
+const REDIRECT_TYPES = require("./redirect-types");
 const HTTP_CODES = require('./utils/http-codes');
 const Timer = require("./utils/timer");
 const RequestData = require("./request-data");
 const CookieData = require("./cookie-data");
+
 
 /** @typedef {import("uWebSockets.js").HttpRequest} HttpRequest */
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
@@ -41,6 +43,7 @@ const readBody = (res, cb, err) => {
 };
 
 class AbstractController {
+
 	/** @type {RequestData|null} */
 	requestData = null;
 	/** @type {CookieData|null} */
@@ -56,7 +59,10 @@ class AbstractController {
 	/** @type {ServiceBroker} broker */
 	broker;
 
+	/** */
 	clientHints = false;
+
+	redirectType = REDIRECT_TYPES.REDIRECT_TYPE_META;
 
 	constructor(opts = {}) {
 		this.broker = opts.broker;
@@ -193,10 +199,24 @@ class AbstractController {
 	 * @param {number} httpCode
 	 */
 	redirect(location, httpCode = 301) {
-		this.writeHeader('location', location);
-		this.setStatus(httpCode);
 		const encodedLoc = location.replace(/"/g, "%22");
-		return `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${encodedLoc}"></head></html>`;
+
+		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_META) {
+			this.setStatus(httpCode);
+			this.writeHeader('location', location);
+			return `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${encodedLoc}"></head></html>`;
+		}
+
+		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_JS) {
+			return `<!DOCTYPE html><html><head><script>window.location.href='${location}'</script></head></html>`;
+		}
+
+		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_HEADER) {
+			this.setStatus(httpCode);
+			this.writeHeader('location', location);
+		}
+
+		return '';
 	}
 
 }

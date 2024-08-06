@@ -18,12 +18,22 @@ export type JSONArray = Array<JSONValue>;
 type RouteOptionMethod = "get" | "post" | "any" | "options"
     | "head" | "put" | "connect" | "trace" | "patch" | "del";
 
+type PortSchemaOption = "node" | "auto";
+
 export interface RouteOptions {
     path: string;
     method: RouteOptionMethod;
     controller?: string;
     action?: string;
     service?: string;
+    cache?: number;
+    onBefore?: Function;
+    onAfter?: Function;
+}
+export interface CreateRouteOption {
+    cache?: number;
+    onBefore?: Function;
+    onAfter?: Function;
 }
 
 export interface UwsServerSettings {
@@ -34,7 +44,7 @@ export interface UwsServerSettings {
     ip: string;
     publicDir: null | string;
     publicIndex: boolean | string;
-    portSchema: null | string;
+    portSchema: null | PortSchemaOption;
     routes: Array<RouteOptions>;
     controllers: {
         [name: string]: typeof AbstractController;
@@ -45,7 +55,6 @@ export interface RenderRawOptions {
     view: string;
     httpCode?: string | null
     format?: string | null;
-
 }
 
 export interface RenderOptions {
@@ -109,6 +118,7 @@ export class AbstractController {
     format: string;
     statusCode: number;
     statusCodeText: string;
+    redirectType: string;
     headers: {
         [name: string]: any;
     }
@@ -153,7 +163,8 @@ export interface UwsServer {
     started(): Promise<void>;
 
     methods: {
-        createRoute(route: RouteOptions | string): void;
+        createRoute(route: string, options: CreateRouteOption): void;
+        addRoute(route: RouteOptions): void;
         bindRoutes(): void;
         bindRoutesStatic(): void;
         getServerUws(): TemplatedApp | null;

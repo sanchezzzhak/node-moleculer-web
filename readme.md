@@ -75,7 +75,7 @@ class AppService extends Service {
 module.exports = AppService
 ```
 
-### Format bind route
+### Router path
 * `<request type> / #c:<controller name>.<action>`
 * `<request type> / #s:<service name>.<action>`
 * allowed request types:
@@ -90,102 +90,125 @@ module.exports = AppService
 * `put` - HTTP PUT
 * `trace` - HTTP TRACE
 
+### Router Options
+* `cache` - second http cache
+* `onBefore(route, req, res)` - Function before call for controller or service
+* `onAfter(route, req, res)` - Function after call for controller or service
+
+Example options for createRoute
+```js
+this.createRoute('get / #c:home.index', {cache: 5});
+this.bindRoutes();
+```
+
+
 ### Controller API
+* properties:
 
-* requestData - read request data / write headers
-* cookieData - read/write cookie
+| **property**                                                                                                                                  | **description**                              |
+|:----------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------|
+| `requestData`                                                                                                                                 | read request data                            |
+| `cookieData`                                                                                                                                  | read/write cookie                            |
+| `requestData or cookieData` (The property objects are available after executing the `this.initRequest()` method inside the controller method) |
+| `redirectType`                                                                                                                                | "header" \| "meta" \| "js"  (default meta)   |
+| `format`                                                                                                                                      | default response content type default `html` |
+| `statusCode`                                                                                                                                  | default response http code number `200`      |
+| `statusCodeText`  | default response http code string `200 OK`  |
 
+
+
+### Example Controllers
 response json object
 ```js
 class Home extends AbstractController {
-	index() {
-		return this.asJson({}, 200);
-	}
+  async index() {
+   return this.asJson({}, 200);
+  }
 }
 ```
 response redirect to other url
 ```js
 class Home extends AbstractController {
-	index() {
-		return this.redirect('https://youdomain.dev', 301);
-	}
+  async index() {
+    return this.redirect('https://youdomain.dev', 301);
+  }
 }
 ```
 response ejs template
 ```js
 class Home extends AbstractController {
-	index() {
-		return this.render({
+  async index() {
+    return this.render({
       template, params, httpCode: 200, format: 'html'
     });
-	}
+  }
 }
 ```
 response raw
 ```js
 class Home extends AbstractController {
-	index() {
-		return this.renderRaw({view: 'string', httpCode: 200, format: 'html'});
-	}
+  async index() {
+    return this.renderRaw({view: 'string', httpCode: 200, format: 'html'});
+  }
 }
 ```
 or
 ```js
 class Home extends AbstractController {
-	index() {
-		return 'Hello World'
-	}
+  async index() {
+    return 'Hello World'
+  }
 }
 ```
 Read or Write Cookie
 ```js
 class Home extends AbstractController {
-	async index() {
-		this.initRequest();
-		// read
-		const cookievalue= this.cookieData.get('my_cookievalue', 1*new Date);
-		// write
+  async index() {
+    this.initRequest();
+    // read
+    const cookievalue= this.cookieData.get('my_cookievalue', 1*new Date);
+    // write
     this.cookieData.set('my_cookievalue', cookievalue)
 
-		return cookievalue;
-	}
+    return cookievalue;
+  }
 }
 ```
 get request data
 ```js
 class Home extends AbstractController {
-	async index() {
-		this.initRequest();
-		const headers = this.requestData.headers;
-		const ip = this.requestData.ip;
-		const query = this.requestData.query ?? {};
-		const referer = this.requestData.referer;
-		const currentUrl = this.requestData.url;
-		const userAgent = this.requestData.userAgent;
-		
-		return this.asJson({headers, ip, query, referer, currentUrl, userAgent}, 200);
+  async index() {
+    this.initRequest();
+    const headers = this.requestData.headers;
+    const ip = this.requestData.ip;
+    const query = this.requestData.query ?? {};
+    const referer = this.requestData.referer;
+    const currentUrl = this.requestData.url;
+    const userAgent = this.requestData.userAgent;
+
+    return this.asJson({headers, ip, query, referer, currentUrl, userAgent}, 200);
 	}
 }
 ```
 call another microservice service in controller
 ```js
 class Home extends AbstractController {
-	async index() {
-		const data = await this.broker.call('service-name.action', {
-			email: 'test'
-    }) ?? {};
-		
-		return this.asJson(data, 200);
-	}
+  async index() {
+   const data = await this.broker.call('service-name.action', {
+      email: 'test'
+   }) ?? {};
+	 
+   return this.asJson(data, 200);
+  }
 }
 ```
 read post body
 ```js
 class Home extends AbstractController {
-	async index() {
-		const body = await this.readBody();
-		return this.asJson({body}, 200);
-	}
+  async index() {
+    const body = await this.readBody();
+     return this.asJson({body}, 200);
+  }
 }
 ```
 

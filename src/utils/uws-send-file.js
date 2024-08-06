@@ -88,7 +88,7 @@ async function uwsSendFile(res, req, options = {}) {
   if (end < 0) end = 0;
   let readStream = createReadStream(path, {start, end});
   let compressed = false;
-	options.compress - false;
+	options.compress = false;
   if (options.compress) {
     const l = options.compressionOptions.priority.length;
     for (let i = 0; i < l; i++) {

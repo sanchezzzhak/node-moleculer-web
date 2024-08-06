@@ -76,14 +76,13 @@ const UwsServer = {
 
 	methods: {
 		/**
-		 * 	// formats for string:
 		 * 	// get url #s:service.action     - service.action
 		 * 	// get url #c:controller.action  - controller.action
 		 *
-		 * @param {string|RouteOptions} route
+		 * @param {string} route
+		 * @param {CreateRouteOption} options
 		 */
-		createRoute(route) {
-			if (typeof route === 'string') {
+		createRoute(route, options = {} ) {
 				const regex = /^(get|post|any|options|head|put|connect|trace|patch|del) (.*) #([sc]):([a-z]+)\.([a-z]+)$/i;
 				const match = regex.exec(route);
 				if (match) {
@@ -92,21 +91,32 @@ const UwsServer = {
 					const type = match[3] ?? '';
 					const controller = match[4] ?? '';
 					const action = match[5] ?? '';
+					const cache = options.cache ?? 0;
+					const onBefore = options.onBefore ?? null;
+					const onAfter = options.onAfter ?? null;
+
 					if (type === 'c') {
-						this.settings.routes.push({path, method, controller, action});
+						this.addRoute({path, method, controller, action, cache, onBefore, onAfter});
 					}
 					if (type === 's') {
-						this.settings.routes.push({path, method, service: [controller, action].join('.')});
+						this.addRoute({path, method, service: [controller, action].join('.'), cache, onBefore, onAfter});
 					}
 				}
-			} else {
-				this.settings.routes.push(route);
-			}
+		},
+
+		/**
+		 *
+		 * @param {RouteOptions} route
+		 */
+		addRoute(route) {
+			this.settings.routes.push(route);
 		},
 
 		bindRoutesStatic() {
 			const rootDir = this.settings.publicDir;
-			const indexFile = this.settings.publicIndex ? fsPath.join(rootDir, this.settings.publicIndex) : false;
+			const indexFile = this.settings.publicIndex
+				? fsPath.join(rootDir, this.settings.publicIndex)
+				: false;
 
 			if (rootDir) {
 				this.getServerUws().get('/*',  (res, req) => {
@@ -131,17 +141,19 @@ const UwsServer = {
 					res.onAborted(() => {
 						res.aborted = true;
 					});
+					// run before promise
 					if (route.onBefore) {
 						await this.Promise.method(route.onBefore, {route, res, req})
 					}
+					// run controller.action or service.action
 					const [controller, result] = route.service === void 0
 						? await this.runControllerAction(route.controller, route.action, res, req)
 						: [null, await this.broker.call(route.service)]
-
+					// run after promise
 					if (route.onAfter) {
 						await this.Promise.method(route.onAfter, {route, res, req})
 					}
-
+					// append cork
 					if (!res.aborted) {
 						res.cork(() => {
 							if (controller !== null && controller.headers) {
@@ -158,9 +170,8 @@ const UwsServer = {
 							res.end(result);
 						});
 					}
-				});
+				}, route.cache ?? 0);
 			});
-
 
 			this.bindRoutesStatic();
 		},
