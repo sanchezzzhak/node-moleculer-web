@@ -44,6 +44,7 @@ export interface UwsServerSettings {
     ip: string;
     publicDir: null | string;
     publicIndex: boolean | string;
+    staticCompress: boolean;
     portSchema: null | PortSchemaOption;
     routes: Array<RouteOptions>;
     controllers: {

@@ -1,7 +1,6 @@
 const {createBrotliCompress, createGzip, createDeflate} = require('zlib');
-const {existsSync, statSync, createReadStream} = require('fs');
+const {existsSync, statSync,  createReadStream} = require('fs');
 const {getMime} = require("./mime");
-
 
 const compressions = {
   br: createBrotliCompress,
@@ -14,14 +13,15 @@ const defaultOptions = {
   compress: true,
   compressionOptions: {
     priority: ['gzip', 'br', 'deflate']
-  }
+  },
+	publicIndex: 'index.html'
 };
 
 const BYTES = 'bytes=';
 
 function writeHeaders(res, headers) {
   for (const n in headers) {
-    res.writeHeader(n, headers[n].toString());
+		res.writeHeader(n, headers[n].toString());
   }
 }
 
@@ -50,9 +50,13 @@ async function uwsSendFile(res, req, options = {}) {
   let {mtime, size} = stat;
 
   if (!stat.isFile()) {
-    res.writeStatus('404 Not Found');
-    res.end();
-    return false;
+		if (options.publicIndex && stat.isDirectory() && existsSync(path + '/' + options.publicIndex)) {
+			path = path + '/' + options.publicIndex
+		} else {
+			res.writeStatus('404 Not Found');
+			res.end();
+			return false;
+		}
   }
 
   let headers = options.headers;
@@ -72,11 +76,10 @@ async function uwsSendFile(res, req, options = {}) {
     headers['last-modified'] = mtimeutc;
   }
   headers['content-type'] = getMime(path);
-
-
+	let compressed = options.compress;
   let start = 0, end = size - 1;
   if (range) {
-    options.compress = false;
+		compressed = false;
     const parts = range.replace(BYTES, '').split('-');
     start = parseInt(parts[0], 10);
     end = parts[1] ? parseInt(parts[1], 10) : end;
@@ -87,9 +90,9 @@ async function uwsSendFile(res, req, options = {}) {
 
   if (end < 0) end = 0;
   let readStream = createReadStream(path, {start, end});
-  let compressed = false;
-	options.compress = false;
-  if (options.compress) {
+
+
+  if (compressed) {
     const l = options.compressionOptions.priority.length;
     for (let i = 0; i < l; i++) {
       const type = options.compressionOptions.priority[i];
@@ -103,12 +106,13 @@ async function uwsSendFile(res, req, options = {}) {
       }
     }
   }
+
   res.onAborted(() => readStream.destroy());
+
 	res.cork(() => {
 		writeHeaders(res, headers);
 		range && res.writeStatus('206 Partial Content');
 	})
-
 
   if (compressed) {
     readStream.on('data', buffer => {
@@ -117,25 +121,25 @@ async function uwsSendFile(res, req, options = {}) {
 			})
     });
   } else {
-
     readStream.on('data', buffer => {
-      const chunk = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
-          lastOffset = res.getWriteOffset();
+      const chunk = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 
-      // First try
-      const [ok, done] = res.tryEnd(chunk, size);
+			res.cork(() => {
+				const lastOffset = res.getWriteOffset();
+				const [ok, done] = res.tryEnd(chunk, size);
 
-      if (done) {
-        readStream.destroy();
-      } else if (!ok) {
-        // pause because backpressure
-        readStream.pause();
+				if (done) {
+					readStream.destroy();
+					return;
+				}
 
-        // Save unsent chunk for later
-        res.ab = chunk;
-        res.abOffset = lastOffset;
+				if (!ok && !done) {
+					// pause because backpressure
+					readStream.pause();
+					// Save unsent chunk for later
+					res.ab = chunk;
+					res.abOffset = lastOffset;
 
-				res.cork(() => {
 					// Register async handlers for drainage
 					res.onWritable(offset => {
 						const [ok, done] = res.tryEnd(res.ab.slice(offset - res.abOffset), size);
@@ -146,30 +150,28 @@ async function uwsSendFile(res, req, options = {}) {
 						}
 						return ok;
 					});
-				})
+				}
 
-      }
+			})
     });
   }
-  readStream
-      .on('error', e => {
-				res.cork(() => {
-					res.writeStatus('500 Internal server error');
-					res.end();
-				});
-        readStream.destroy();
-        // throw e;
-      })
-      .on('end', () => {
-				res.cork(() => {
-					res.end();
-				});
-      });
 
+	readStream
+		.on('error', e => {
+			res.cork(() => {
+				res.writeStatus('500 Internal server error');
+				res.end();
+			});
+			!readStream.destroyed && readStream.destroy();
+			// throw e;
+		})
+		.on('end', () => {
+			res.cork(() => {
+				res.end();
+			});
+		});
 
   return true;
-
 }
-
 
 module.exports = uwsSendFile;

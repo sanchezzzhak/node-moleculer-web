@@ -1,6 +1,6 @@
 {
   "name": "node-moleculer-web",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Fast web app service for moleculer.js + uWebSockets.js",
   "main": "src/index.js",
   "repository": {

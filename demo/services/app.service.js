@@ -11,9 +11,11 @@ class AppService extends Service {
 			name: 'app',
 			settings: {
 				port: process.env.SERVER_PORT ?? 3101,
-				ip: process.env.SERVER_IP ?? '127.0.0.1',
+				ip: process.env.SERVER_IP ?? 'localhost',
 				portSchema: process.env.SERVER_SCHEMA ?? 'none',
 				publicDir: __dirname + '/../statics',
+				publicIndex: 'index.html',
+				staticCompress: true,
 				controllers: {
 					home: HomeController
 				}
@@ -28,8 +30,8 @@ class AppService extends Service {
 
 	createService() {
 		this.createRoute('get /about #c:home.about')
-		this.createRoute('get / #c:home.index')
-		this.createRoute('get /test/redirect #c:home.test')
+		this.createRoute('get / #c:home.index', {})
+		this.createRoute('get /test/redirect #c:home.test', {})
 
 		this.bindRoutes();
 	}

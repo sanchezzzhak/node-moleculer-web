@@ -1,4 +1,5 @@
 const Uws = require('uWebSockets.js');
+
 const fsPath = require('node:path');
 const getNextOpenPort = require('./utils/get-next-open-port');
 const uwsSendFile = require('./utils/uws-send-file');
@@ -41,9 +42,11 @@ const UwsServer = {
 	settings: {
 		port: 3000,
 		ssl: {},
-		ip: '127.0.0.1',
+		ip: 'localhost',
 		publicDir: null,
-		publicIndex: false, //'index.html'
+		publicIndex: false, // or 'index.html'
+		staticCompress: true,
+		staticLastModified: true,
 		portSchema: 'node',
 		routes: [],
 		controllers: {}
@@ -115,7 +118,7 @@ const UwsServer = {
 					const type = match[3] ?? '';
 					const controller = match[4] ?? '';
 					const action = match[5] ?? '';
-					const cache = options.cache ?? 0;
+					const cache = options.cache ?? -1;
 					const onBefore = options.onBefore ?? null;
 					const onAfter = options.onAfter ?? null;
 
@@ -149,7 +152,11 @@ const UwsServer = {
 
 			if (rootDir) {
 				this.getServerUws().get('/*',  (res, req) => {
-					const options = {};
+					const options = {
+						publicIndex: this.settings.publicIndex,
+						compress: this.settings.staticCompress,
+						lastModified: this.settings.staticLastModified,
+					};
 					const path = req.getUrl();
 					if (path === '/' && indexFile) {
 						options.path = indexFile
@@ -166,10 +173,13 @@ const UwsServer = {
 		 */
 		bindRoutes() {
 			this.settings.routes.forEach((route) => {
+
 				this.getServerUws()[route.method](route.path, async (res, req) => {
-					res.onAborted(() => {
+
+					res.onAborted && res.onAborted(() => {
 						res.aborted = true;
 					});
+
 					// run before promise
 					if (route.onBefore) {
 						await this.Promise.method(route.onBefore, {route, res, req})
@@ -204,7 +214,7 @@ const UwsServer = {
 							res.end(result);
 						});
 					}
-				}, route.cache ?? 0);
+				});
 			});
 
 			this.bindRoutesStatic();
@@ -277,7 +287,7 @@ const UwsServer = {
 				this.server = Uws.SSLApp({
 					key_file_name: this.settings.ssl.keyPath,
 					cert_file_name: this.settings.ssl.certPath,
-					ssl_prefer_low_memory_usage: this.server.ssl.prefer_low_memory_usage || faslse
+					ssl_prefer_low_memory_usage: this.server.ssl.prefer_low_memory_usage || false
 				});
 				return;
 			}

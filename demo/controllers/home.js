@@ -4,9 +4,13 @@ class HomeController extends AbstractController {
 
 	async index() {
 		this.initRequest();
-		this.cookieData.set('server-test-cookie', '1', {
+
+		let cookieValue = this.cookieData.get('server-test-cookie', 0);
+
+		this.cookieData.set('server-test-cookie', parseInt(cookieValue)+1, {
 			expires: new Date() + 36000
 		})
+
 		return this.renderRaw({
 			view: `<!DOCTYPE html>
 			<html>
@@ -15,8 +19,13 @@ class HomeController extends AbstractController {
 				</head>
 					<body>		
 					<h1>Heading</h1>
-					<a href="/test/redirect">redirect to about page</a>
-					<a href="/about">about page</a>
+					<ul>
+						<li>  <a href="/index1.html">get static file</a></li>
+						<li>	<a href="/test/redirect">redirect to about page</a></li>
+						<li>	<a href="/about">about page</a></li>
+					</ul>
+					
+					current cookie incr ${cookieValue}
 				</body>
 			</html>
 			`,
