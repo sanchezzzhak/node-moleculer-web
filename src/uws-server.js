@@ -4,6 +4,12 @@ const getNextOpenPort = require('./utils/get-next-open-port');
 const uwsSendFile = require('./utils/uws-send-file');
 
 /**
+ * @typedef {import("uWebSockets.js").TemplatedApp} TemplatedApp
+ * @typedef {import("uWebSockets.js").HttpResponse} HttpResponse
+ * @typedef {import("uWebSockets.js").HttpRequest} HttpRequest
+ */
+
+/**
  * Decode param value.
  * @param val {String}
  * @return {String}
@@ -26,6 +32,8 @@ function decodeRouterParam(val) {
 
 const PORT_SCHEMA_AUTO = 'auto';
 const PORT_SCHEMA_NODE = 'node';
+const ROUTER_TYPE_CONTROLLER = 'c';
+const ROUTER_TYPE_SERVICE = 's';
 
 const UwsServer = {
 	server: null,
@@ -41,11 +49,23 @@ const UwsServer = {
 		controllers: {}
 	},
 
+	/*********************************/
+	/* Private microservice methods: */
+	/*********************************/
+
+	/**
+	 * Bind service.created for molecularjs
+	 * @return {Promise<void>}
+	 */
 	async created() {
 		this.initServer();
 		return Promise.resolve();
 	},
 
+	/**
+	 * Bind service.started for molecularjs
+	 * @return {Promise<void>}
+	 */
 	async started() {
 		const nodeRe = /(\d+)$/i.exec(this.broker.nodeID);
 		const nodeId = nodeRe !== null ? Number(nodeRe[0]) : 0;
@@ -63,9 +83,10 @@ const UwsServer = {
 			}
 			this.settings.port = port;
 		}
+
 		const messages = [
-			`Server select port: ${this.settings.port}`,
-			`port strategy: ${this.settings.portSchema}`,
+			`Server select: ip ${this.settings.ip} port ${this.settings.port}`,
+			`port strategy select: ${this.settings.portSchema}`,
 			`server-id: ${nodeId}`
 		];
 
@@ -73,6 +94,9 @@ const UwsServer = {
 		await this.listenServer();
 	},
 
+	/*********************************/
+	/* Public microservice methods:  */
+	/*********************************/
 
 	methods: {
 		/**
@@ -95,23 +119,28 @@ const UwsServer = {
 					const onBefore = options.onBefore ?? null;
 					const onAfter = options.onAfter ?? null;
 
-					if (type === 'c') {
-						this.addRoute({path, method, controller, action, cache, onBefore, onAfter});
-					}
-					if (type === 's') {
-						this.addRoute({path, method, service: [controller, action].join('.'), cache, onBefore, onAfter});
+					switch (type) {
+						case ROUTER_TYPE_CONTROLLER:
+							this.addRoute({path, method, controller, action, cache, onBefore, onAfter});
+							break;
+						case ROUTER_TYPE_SERVICE:
+							this.addRoute({path, method, service: [controller, action].join('.'), cache, onBefore, onAfter});
+							break;
 					}
 				}
 		},
 
 		/**
-		 *
+		 * Add route to collection list
 		 * @param {RouteOptions} route
 		 */
 		addRoute(route) {
 			this.settings.routes.push(route);
 		},
 
+		/**
+		 * Bind routes static files response
+		 */
 		bindRoutesStatic() {
 			const rootDir = this.settings.publicDir;
 			const indexFile = this.settings.publicIndex
@@ -133,7 +162,7 @@ const UwsServer = {
 		},
 
 		/**
-		 * bind native uws routers for array
+		 * Bind native uws routers for array
 		 */
 		bindRoutes() {
 			this.settings.routes.forEach((route) => {
@@ -156,17 +185,22 @@ const UwsServer = {
 					// append cork
 					if (!res.aborted) {
 						res.cork(() => {
+							// write headers response
 							if (controller !== null && controller.headers) {
 								for (let key in controller.headers) {
 									res.writeHeader(key, controller.headers[key]);
 								}
 							}
+							// write cookie response
 							if (controller !== null && controller.cookieData) {
 								for (let key in controller.cookieData.resp) {
 									res.writeHeader('set-cookie', controller.cookieData.toHeader(key));
 								}
 							}
-							controller !== null && controller.statusCodeText && res.writeStatus(controller.statusCodeText);
+							// write status response
+							if (controller !== null && controller.statusCodeText) {
+								res.writeStatus(controller.statusCodeText);
+							}
 							res.end(result);
 						});
 					}
@@ -191,9 +225,9 @@ const UwsServer = {
 		 *
 		 * @param {string} controller
 		 * @param {string} action
-		 * @param res
-		 * @param req
-		 * @param {{}} route
+		 * @param {HttpResponse} res
+		 * @param {HttpRequest} req
+		 * @param {RouteOptions|{}} route
 		 * @returns [controller, result]
 		 */
 		async runControllerAction(controller, action, res, req, route = {}) {
@@ -220,7 +254,7 @@ const UwsServer = {
 		},
 
 		/**
-		 * init server listen port
+		 * Init server listen host/ip and port
 		 */
 		listenServer() {
 			return new Promise((resolve, reject) => {
@@ -229,17 +263,21 @@ const UwsServer = {
 						this.logger.info(`Server listening ${this.settings.ip}:${this.settings.port}`);
 						resolve();
 					} else {
-						reject();
+						reject(`Server listening ${this.settings.ip}:${this.settings.port} failed`);
 					}
 				});
 			})
 		},
 
+		/**
+		 * Init server component Uws.App or Uws.SSLApp
+		 */
 		initServer() {
-			if (this.settings.ssl.enable) {
+			if (this.settings.ssl && this.settings.ssl.enable) {
 				this.server = Uws.SSLApp({
 					key_file_name: this.settings.ssl.keyPath,
 					cert_file_name: this.settings.ssl.certPath,
+					ssl_prefer_low_memory_usage: this.server.ssl.prefer_low_memory_usage || faslse
 				});
 				return;
 			}

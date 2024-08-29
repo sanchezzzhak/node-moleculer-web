@@ -5,7 +5,7 @@ const HTTP_CODES = require('./utils/http-codes');
 const Timer = require("./utils/timer");
 const RequestData = require("./request-data");
 const CookieData = require("./cookie-data");
-
+const JWT = require("./utils/jwt");
 
 /** @typedef {import("uWebSockets.js").HttpRequest} HttpRequest */
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
@@ -43,14 +43,17 @@ const readBody = (res, cb, err) => {
 };
 
 class AbstractController {
-
 	/** @type {RequestData|null} */
 	requestData = null;
 	/** @type {CookieData|null} */
 	cookieData = null;
+	/** default format mime type response */
 	format = 'html';
+	/** default status number response */
 	statusCode = 200;
+	/** default status text response */
 	statusCodeText = '200 OK';
+	/** headers to response */
 	headers = {};
 	/** @type {HttpRequest} res */
 	req;
@@ -58,10 +61,9 @@ class AbstractController {
 	res;
 	/** @type {ServiceBroker} broker */
 	broker;
-
-	/** */
+	/** request client-hints for header response */
 	clientHints = false;
-
+	/** redirect type for the redirect method */
 	redirectType = REDIRECT_TYPES.REDIRECT_TYPE_META;
 
 	constructor(opts = {}) {
@@ -73,6 +75,47 @@ class AbstractController {
 
 	}
 
+	/**
+	 * Create JWT token for payload data
+	 * @param {{}} payload
+	 * @return {string}
+	 */
+	createJwtToken(payload = {}) {
+		return this.getJWT().create(payload);
+	}
+
+	/**
+	 * Extract jwt token to payload data
+	 * @param token
+	 * @return {*}
+	 */
+	extractJwtToken(token) {
+		return this.getJWT().extract(token);
+	}
+
+	/**
+	 * Get JWT component
+	 * @return {JWT}
+	 */
+	getJWT() {
+		if (!this.jwt) {
+			throw new Error('To use this method you need to call the initJWT(key, iat) method') ;
+		}
+		return this.jwt;
+	}
+
+	/**
+	 * Init JWT component to property
+	 * @param {string} key
+	 * @param {boolean} iat
+	 */
+	initJWT(key, iat = false) {
+		this.jwt = new JWT({key, iat});
+	}
+
+	/**
+	 * Init requestData and cookieData components to properties
+	 */
 	initRequest() {
 		this.requestData = new RequestData(this.req, this.res);
 		this.cookieData = new CookieData(this.req, this.res);
@@ -81,7 +124,7 @@ class AbstractController {
 		}
 	}
 	/**
-	 * remove unnecessary information from the validators from the array
+	 * Remove unnecessary information from the validators from the array
 	 * @param {[{field:"", message:""}]} listErrors
 	 * @returns {[]}
 	 */
@@ -95,7 +138,7 @@ class AbstractController {
 	}
 
 	/**
-	 * final response as JSON
+	 * Final response as JSON
 	 * @param {JSONObject} obj
 	 * @param {number} httpCode
 	 */
@@ -103,12 +146,17 @@ class AbstractController {
 		return this.renderRaw({view: JSON.stringify(obj), httpCode, format: 'json'});
 	}
 
+	/**
+	 * Write header to response
+	 * @param key
+	 * @param value
+	 */
 	writeHeader(key, value) {
 		this.headers[key] = value;
 	}
 
 	/**
-	 * Set all cors
+	 * Write all cors headers allow to response
 	 */
 	setCorsHeaders() {
 		this.writeHeader('Access-Control-Allow-Origin', '*');
@@ -120,7 +168,7 @@ class AbstractController {
 	}
 
 	/**
-	 * Set headers client-hints
+	 * Write headers client-hints to response
 	 */
 	setClientHintsHeaders() {
 		this.writeHeader('accept-ch', [
@@ -135,7 +183,7 @@ class AbstractController {
 	}
 
 	/**
-	 * is current connect aborted
+	 * Is current connect aborted
 	 * @return {any}
 	 */
 	isAborted() {
@@ -143,7 +191,7 @@ class AbstractController {
 	}
 
 	/**
-	 * read post data
+	 * Read post data
 	 * @returns {Promise<unknown>}
 	 */
 	readBody() {
@@ -153,7 +201,7 @@ class AbstractController {
 	}
 
 	/**
-	 * render as text
+	 * Render as text
 	 * @param {string} view
 	 * @param {number|null} httpCode
 	 * @param {string|null} format
@@ -172,7 +220,7 @@ class AbstractController {
 	}
 
 	/**
-	 * render ejs template
+	 * Render ejs template
 	 * @param {string} template
 	 * @param {{}} params
 	 * @param {number} httpCode
@@ -185,7 +233,7 @@ class AbstractController {
 	}
 
 	/**
-	 * set http status
+	 * Set http status
 	 * @param {number} httpCode
 	 */
 	setStatus(httpCode) {
@@ -194,7 +242,7 @@ class AbstractController {
 	}
 
 	/**
-	 * redirect
+	 * Redirect
 	 * @param {string} location
 	 * @param {number} httpCode
 	 */

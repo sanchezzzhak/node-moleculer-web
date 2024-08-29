@@ -22,7 +22,7 @@ type PortSchemaOption = "node" | "auto";
 
 export interface RouteOptions {
     path: string;
-    method: RouteOptionMethod;
+    method: RouteOptionMethod | string;
     controller?: string;
     action?: string;
     service?: string;
