@@ -46,19 +46,23 @@ class AppService extends Service {
       settings: {
           // base port for server
           port: process.evn.SERVER_PORT ?? 3101,
-            // on what ip to listen
+          // on what ip to listen
           ip: process.evn.SERVER_IP ?? '127.0.0.1',
-          // web-service registration type
-            // node (ports will be assigned +1 from the current one)
-            // auto (ports will be assigned +1 from the current one if the port is free)
+          // web-service registration strategy type for cluster
+          // node (ports will be assigned +1 from the current one)
+          // auto (ports will be assigned +1 from the current one if the port is free)
           portSchema: process.evn.SERVER_SCHEMA ?? 'node',              
-            // if statics are not needed, just remove this parameter
-          publicDir: __dirname + '/../public',  
-            // list of controllers
+          // if statics are not needed, just remove next parameters  
+          publicDir: __dirname + '/../public',
+          publicIndex: 'index.html', // or false
+          staticCompress: true,      // support compresion gzip, br, deflate
+          staticLastModified: true,  // send last modified header for static files
+          // list of controllers
           controllers: {
              home: HomeController
           }
       },
+      // added mixin UwsServer to current services
       mixins: [
           UwsServer
       ],
@@ -109,12 +113,12 @@ this.bindRoutes();
 |:----------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------|
 | `requestData`                                                                                                                                 | read request data                            |
 | `cookieData`                                                                                                                                  | read/write cookie                            |
-| `requestData or cookieData` (The property objects are available after executing the `this.initRequest()` method inside the controller method) |
 | `redirectType`                                                                                                                                | "header" \| "meta" \| "js"  (default meta)   |
 | `format`                                                                                                                                      | default response content type default `html` |
 | `statusCode`                                                                                                                                  | default response http code number `200`      |
-| `statusCodeText`  | default response http code string `200 OK`  |
+| `statusCodeText`  | default response http code string `200 OK`   |
 
+`requestData or cookieData` (The property objects are available after executing the `this.initRequest()` method inside the controller method)
 
 
 ### Example Controllers
@@ -174,7 +178,7 @@ class Home extends AbstractController {
   }
 }
 ```
-get request data
+Get request data
 ```js
 class Home extends AbstractController {
   async index() {
@@ -190,7 +194,7 @@ class Home extends AbstractController {
 	}
 }
 ```
-call another microservice service in controller
+Call another microservice service in controller
 ```js
 class Home extends AbstractController {
   async index() {
@@ -202,12 +206,47 @@ class Home extends AbstractController {
   }
 }
 ```
-read post body
+Read post body
 ```js
 class Home extends AbstractController {
   async index() {
     const body = await this.readBody();
-     return this.asJson({body}, 200);
+		return this.asJson({body}, 200);
+  }
+}
+```
+Write or read cookies
+```js
+class Home extends AbstractController {
+  async index() {
+    this.initRequest()
+    // read
+		let cookieValue = this.cookieData.get('server-test-cookie', 0);
+		// write
+		this.cookieData.set('server-test-cookie', parseInt(cookieValue)+1, {
+			expires: new Date() + 36000
+		})
+    return this.asJson({status: 'ok', cookieValue}, 200);
+  }
+}
+```
+JWT
+```js
+class Home extends AbstractController {
+	// create token
+  async index() {
+    this.initJWT('mykey');
+    const payload = {userId: 0, status: true};
+		const token = this.getJWT().create(payload)
+		return this.asJson({token}, 200);
+  }
+	// extract payload for token + validation (is payload not null then token valid)
+	async test() {
+		this.initRequest()
+    const token = this.requestData.query.token ?? '';
+		this.initJWT('mykey', false);
+		const payload = this.getJWT().extract(token)
+		return this.asJson({payload}, 200);
   }
 }
 ```
@@ -270,7 +309,6 @@ server {
     proxy_redirect off;
   }
 }
-
 ```
 cluster config moleculer.config.js
 ```js
@@ -286,4 +324,3 @@ module.exports = {
   logger: console
 };
 ```
-
