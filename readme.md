@@ -191,7 +191,7 @@ class Home extends AbstractController {
     const userAgent = this.requestData.userAgent;
 
     return this.asJson({headers, ip, query, referer, currentUrl, userAgent}, 200);
-	}
+  }
 }
 ```
 Call another microservice service in controller
@@ -221,11 +221,11 @@ class Home extends AbstractController {
   async index() {
     this.initRequest()
     // read
-		let cookieValue = this.cookieData.get('server-test-cookie', 0);
-		// write
-		this.cookieData.set('server-test-cookie', parseInt(cookieValue)+1, {
-			expires: new Date() + 36000
-		})
+    let cookieValue = this.cookieData.get('server-test-cookie', 0);
+    // write
+    this.cookieData.set('server-test-cookie', parseInt(cookieValue)+1, {
+    	expires: new Date() + 36000
+    })
     return this.asJson({status: 'ok', cookieValue}, 200);
   }
 }
@@ -233,20 +233,20 @@ class Home extends AbstractController {
 JWT
 ```js
 class Home extends AbstractController {
-	// create token
+  // create token
   async index() {
     this.initJWT('mykey');
     const payload = {userId: 0, status: true};
-		const token = this.getJWT().create(payload)
-		return this.asJson({token}, 200);
+    const token = this.getJWT().create(payload)
+    return this.asJson({token}, 200);
   }
-	// extract payload for token + validation (is payload not null then token valid)
-	async test() {
-		this.initRequest()
-    const token = this.requestData.query.token ?? '';
-		this.initJWT('mykey', false);
-		const payload = this.getJWT().extract(token)
-		return this.asJson({payload}, 200);
+  // extract payload for token + validation (is payload not null then token valid)
+  async test() {
+   this.initRequest()
+   const token = this.requestData.query.token ?? '';
+   this.initJWT('mykey', false);
+   const payload = this.getJWT().extract(token)
+   return this.asJson({payload}, 200);
   }
 }
 ```
