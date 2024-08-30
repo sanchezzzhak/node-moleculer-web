@@ -211,7 +211,7 @@ Read post body
 class Home extends AbstractController {
   async index() {
     const body = await this.readBody();
-		return this.asJson({body}, 200);
+    return this.asJson({body}, 200);
   }
 }
 ```
