@@ -16,7 +16,8 @@ export interface JSONObject {
 export type JSONArray = Array<JSONValue>;
 
 type RouteOptionMethod = "get" | "post" | "any" | "options"
-    | "head" | "put" | "connect" | "trace" | "patch" | "del";
+    | "head" | "put" | "connect" | "trace" | "patch" | "del"
+    | "ws";
 
 type PortSchemaOption = "node" | "auto";
 
@@ -29,11 +30,33 @@ export interface RouteOptions {
     cache?: number;
     onBefore?: Function;
     onAfter?: Function;
+
 }
+
+export interface RouteWsOptions extends RouteOptions {
+    compression?: number;
+    maxPayloadLength?: number;
+    idleTimeout?: number;
+    onOpen?: Function;
+    onMessage?: Function;
+    onClose?: Function;
+    onDrain?: Function;
+}
+
 export interface CreateRouteOption {
     cache?: number;
     onBefore?: Function;
     onAfter?: Function;
+}
+
+export interface CreateRouteWsOption extends CreateRouteOption{
+    compression?: number;
+    maxPayloadLength?: number;
+    idleTimeout?: number;
+    onOpen?: Function;
+    onMessage?: Function;
+    onClose?: Function;
+    onDrain?: Function;
 }
 
 export interface UwsServerSettings {
@@ -46,7 +69,7 @@ export interface UwsServerSettings {
     publicIndex: boolean | string;
     staticCompress: boolean;
     portSchema: null | PortSchemaOption;
-    routes: Array<RouteOptions>;
+    routes: Array<RouteOptions|RouteWsOptions>;
     controllers: {
         [name: string]: typeof AbstractController;
     }

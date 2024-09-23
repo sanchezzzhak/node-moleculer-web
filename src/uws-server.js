@@ -8,6 +8,7 @@ const uwsSendFile = require('./utils/uws-send-file');
  * @typedef {import("uWebSockets.js").TemplatedApp} TemplatedApp
  * @typedef {import("uWebSockets.js").HttpResponse} HttpResponse
  * @typedef {import("uWebSockets.js").HttpRequest} HttpRequest
+ * @typedef {import("uWebSockets.js").WebSocket} WebSocket
  */
 
 /**
@@ -34,6 +35,7 @@ function decodeRouterParam(val) {
 const PORT_SCHEMA_AUTO = 'auto';
 const PORT_SCHEMA_NODE = 'node';
 const ROUTER_TYPE_CONTROLLER = 'c';
+const ROUTER_TYPE_WEBSOCKET = 'w';
 const ROUTER_TYPE_SERVICE = 's';
 
 const UwsServer = {
@@ -107,10 +109,10 @@ const UwsServer = {
 		 * 	// get url #c:controller.action  - controller.action
 		 *
 		 * @param {string} route
-		 * @param {CreateRouteOption} options
+		 * @param {CreateRouteOption|CreateRouteWsOption} options
 		 */
 		createRoute(route, options = {} ) {
-				const regex = /^(get|post|any|options|head|put|connect|trace|patch|del) (.*) #([sc]):([a-z]+)\.([a-z]+)$/i;
+				const regex = /^(get|post|any|options|head|put|connect|trace|patch|del|ws) (.*) #([scw]):([a-z]+)\.([a-z]+)$/i;
 				const match = regex.exec(route);
 				if (match) {
 					const method = match[1].toLowerCase();
@@ -129,13 +131,27 @@ const UwsServer = {
 						case ROUTER_TYPE_SERVICE:
 							this.addRoute({path, method, service: [controller, action].join('.'), cache, onBefore, onAfter});
 							break;
+						case ROUTER_TYPE_WEBSOCKET:
+							const onMessage = options.onMessage ?? null;
+							const onClose = options.onClose ?? null;
+							const onDrain = options.onDrain ?? null;
+							const compression = options.compression ?? null;
+							const idleTimeout = options.idleTimeout ?? null;
+							const maxPayloadLength = options.maxPayloadLength ?? null;
+							this.addRoute({
+								path,
+								method,
+								service: [controller, action].join('.'),
+								onMessage, onClose, onDrain, idleTimeout, maxPayloadLength, compression
+							})
+							break;
 					}
 				}
 		},
 
 		/**
 		 * Add route to collection list
-		 * @param {RouteOptions} route
+		 * @param {RouteOptions|RouteWsOptions} route
 		 */
 		addRoute(route) {
 			this.settings.routes.push(route);
@@ -168,53 +184,120 @@ const UwsServer = {
 			}
 		},
 
+
+
+		/**
+		 * bind https? route
+		 * @param {RouteOptions} route
+		 */
+		bindHttp(route) {
+
+			this.getServerUws()[route.method](route.path, async (res, req) => {
+
+				res.onAborted && res.onAborted(() => {
+					res.aborted = true;
+				});
+
+				// run before promise
+				if (route.onBefore) {
+					await this.Promise.method(route.onBefore, {route, res, req})
+				}
+				// run controller.action or service.action
+				const [controller, result] = route.service === void 0
+					? await this.runControllerAction(route.controller, route.action, res, req)
+					:	[null, await this.broker.call(route.service)]
+
+				// run after promise
+				if (route.onAfter) {
+					await this.Promise.method(route.onAfter, {route, res, req})
+				}
+				// append cork
+				if (!res.aborted) {
+					res.cork(() => {
+						// write headers response
+						if (controller !== null && controller.headers) {
+							for (let key in controller.headers) {
+								res.writeHeader(key, controller.headers[key]);
+							}
+						}
+						// write cookie response
+						if (controller !== null && controller.cookieData) {
+							for (let key in controller.cookieData.resp) {
+								res.writeHeader('set-cookie', controller.cookieData.toHeader(key));
+							}
+						}
+						// write status response
+						if (controller !== null && controller.statusCodeText) {
+							res.writeStatus(controller.statusCodeText);
+						}
+						res.end(result);
+					});
+				}
+			});
+		},
+
+		/**
+		 * bind ws route
+		 * @param {RouteWsOptions} route
+		 */
+		bindWs(route) {
+
+			const maxPayloadLength = route.maxPayloadLength ?? 16;
+			const service = route.service;
+			const behavior = {
+				compression: route.compression ?? Uws.SHARED_COMPRESSOR,
+				maxPayloadLength: maxPayloadLength * 1024 * 1024,
+				idleTimeout: route.idleTimeout ?? 10,
+			};
+
+			if (route.onOpen) {
+				behavior.open = (ws) => {
+					route.onOpen(ws, service);
+				}
+			}
+			if (route.onMessage) {
+				behavior.message = async (ws, message, isBinary) => {
+					let context = '';
+					// run before promise
+					if (route.onBefore) {
+						await this.Promise.method(route.onBefore, {ws, message, isBinary, service, context})
+					}
+					// call onMessage
+					 await route.onMessage(ws, message, isBinary, service, context);
+					// run before promise
+					if (route.onAfter) {
+						await this.Promise.method(route.onAfter, {ws, message, isBinary, service, context})
+					}
+					ws.end(context);
+				}
+			}
+			if (route.onDrain) {
+				behavior.drain = (ws) => {
+					route.onDrain(ws, service);
+				}
+			}
+			if (route.onClose) {
+				behavior.close = (ws, code, message) => {
+					route.onClose(ws, code, message, service);
+				}
+			}
+
+			this.getServerUws().ws(route.path, behavior);
+		},
+
 		/**
 		 * Bind native uws routers for array
 		 */
 		bindRoutes() {
 			this.settings.routes.forEach((route) => {
-
-				this.getServerUws()[route.method](route.path, async (res, req) => {
-
-					res.onAborted && res.onAborted(() => {
-						res.aborted = true;
-					});
-
-					// run before promise
-					if (route.onBefore) {
-						await this.Promise.method(route.onBefore, {route, res, req})
-					}
-					// run controller.action or service.action
-					const [controller, result] = route.service === void 0
-						? await this.runControllerAction(route.controller, route.action, res, req)
-						: [null, await this.broker.call(route.service)]
-					// run after promise
-					if (route.onAfter) {
-						await this.Promise.method(route.onAfter, {route, res, req})
-					}
-					// append cork
-					if (!res.aborted) {
-						res.cork(() => {
-							// write headers response
-							if (controller !== null && controller.headers) {
-								for (let key in controller.headers) {
-									res.writeHeader(key, controller.headers[key]);
-								}
-							}
-							// write cookie response
-							if (controller !== null && controller.cookieData) {
-								for (let key in controller.cookieData.resp) {
-									res.writeHeader('set-cookie', controller.cookieData.toHeader(key));
-								}
-							}
-							// write status response
-							if (controller !== null && controller.statusCodeText) {
-								res.writeStatus(controller.statusCodeText);
-							}
-							res.end(result);
-						});
-					}
-				});
+				switch (route.method) {
+					case 'ws':
+						this.bindWs(route);
+						break;
+					default:
+						this.bindHttp(route);
+						break;
+				}
 			});
 
 			this.bindRoutesStatic();

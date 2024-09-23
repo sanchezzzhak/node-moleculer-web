@@ -83,6 +83,7 @@ module.exports = AppService
 * `<request type> / #c:<controller name>.<action>`
 * `<request type> / #s:<service name>.<action>`
 * allowed request types:
+* `ws`  - WebSocket
 * `any` - HTTP ALL
 * `connect` - HTTP CONNECT
 * `del` - HTTP DELETE
@@ -94,10 +95,33 @@ module.exports = AppService
 * `put` - HTTP PUT
 * `trace` - HTTP TRACE
 
-### Router Options
+### Router Options Ws
+* `idleTimeout` - 
+* `maxPayloadLength` - 
+* `compression` - 
 * `cache` - second http cache
-* `onBefore(route, req, res)` - Function before call for controller or service
-* `onAfter(route, req, res)` - Function after call for controller or service
+* `onDrain(ws, service)` - Function
+* `onClose(ws, code, message, service)` - Function
+* `onMessage(ws, message, isBinary, service, context)` - Function general function call
+
+* `onBefore(ws, message, isBinary, service, context)` - Function before call for onMessage callback
+* `onAfter(ws, message, isBinary, service, context)` - Function after call for onMessage callback
+
+```js
+this.createRoute('ws /* #w:home.index', {
+  idleTimeout: 10, 
+  maxPayloadLength: 16, 
+  compression: null,
+  onMessage: async (ws: WebSocket<UserData>, message: string, isBinary: boolean, service: string, context: string) => {
+    return context;
+  }
+});
+```
+
+### Router Options Http
+* `cache` - second http cache
+* `onBefore(route, res, req)` - Function before call for controller or service
+* `onAfter(route, res, req)` - Function after call for controller or service
 
 Example options for createRoute
 ```js
@@ -105,21 +129,20 @@ this.createRoute('get / #c:home.index', {cache: 5});
 this.bindRoutes();
 ```
 
-
 ### Controller API
 * properties:
 
-| **property**                                                                                                                                  | **description**                              |
-|:----------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------|
-| `requestData`                                                                                                                                 | read request data                            |
-| `cookieData`                                                                                                                                  | read/write cookie                            |
-| `redirectType`                                                                                                                                | "header" \| "meta" \| "js"  (default meta)   |
-| `format`                                                                                                                                      | default response content type default `html` |
-| `statusCode`                                                                                                                                  | default response http code number `200`      |
-| `statusCodeText`  | default response http code string `200 OK`   |
+| **property**        | **description**                              |
+|:--------------------|:---------------------------------------------|
+| `requestData`       | read request data                            |
+| `cookieData`        | read/write cookie                            |
+| `redirectType`      | "header" \| "meta" \| "js"  (default meta)   |
+| `format`            | default response content type default `html` |
+| `statusCode`        | default response http code number `200`      |
+| `statusCodeText`    | default response http code string `200 OK`   |
+
 
 `requestData or cookieData` (The property objects are available after executing the `this.initRequest()` method inside the controller method)
-
 
 ### Example Controllers
 response json object
