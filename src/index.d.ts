@@ -1,5 +1,6 @@
 import {TemplatedApp, HttpRequest, HttpResponse} from "uWebSockets.js";
 import {ServiceBroker} from "moleculer";
+import JWT from "./utils/jwt";
 
 export type JSONValue =
     | string
@@ -27,13 +28,17 @@ export interface RouteOptions {
     action?: string;
     service?: string;
     cache?: number;
-    onBefore?: Function;
-    onAfter?: Function;
+    onBefore?: onBeforeFunc;
+    onAfter?: onAfterFunc;
 }
+
+type onBeforeFunc = ({route: RouteOptions, res: HttpResponse, req: HttpRequest}) => void;
+type onAfterFunc = ({route: RouteOptions, res: HttpResponse, req: HttpRequest, data:string}) => string;
+
 export interface CreateRouteOption {
     cache?: number;
-    onBefore?: Function;
-    onAfter?: Function;
+    onBefore?: onBeforeFunc;
+    onAfter?: onAfterFunc;
 }
 
 export interface UwsServerSettings {
@@ -44,12 +49,14 @@ export interface UwsServerSettings {
     ip: string;
     publicDir: null | string;
     publicIndex: boolean | string;
+    staticLastModified: boolean,
     staticCompress: boolean;
     portSchema: null | PortSchemaOption;
     routes: Array<RouteOptions>;
     controllers: {
         [name: string]: typeof AbstractController;
-    }
+    },
+    createRouteValidate?: boolean
 }
 
 export interface RenderRawOptions {
@@ -116,6 +123,7 @@ export interface AbstractControllerOptions {
 export class AbstractController {
     requestData: RequestData;
     cookieData: CookieData;
+    jwt?: JWT;
     format: string;
     statusCode: number;
     statusCodeText: string;
@@ -130,6 +138,8 @@ export class AbstractController {
     constructor(opts: AbstractControllerOptions);
 
     initRequest(): void;
+
+    initJWT(key: string, iat: any): void;
 
     compactErrors(listErrors: []): any;
 

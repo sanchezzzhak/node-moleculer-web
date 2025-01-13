@@ -32,8 +32,6 @@ class AppService extends Service {
 		this.createRoute('get /about #c:home.about')
 		this.createRoute('get / #c:home.index', {})
 		this.createRoute('get /test/redirect #c:home.test', {})
-
-		this.bindRoutes();
 	}
 
 }

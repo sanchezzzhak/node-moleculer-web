@@ -1,12 +1,12 @@
 class Timer {
-  __strart = 0;
+  #strart = 0;
 
   start() {
-    this.__strart = process.hrtime();
+    this.#strart = process.hrtime();
   }
 
   end() {
-    return (process.hrtime(this.__strart)[1] / 1e6).toFixed(3);
+    return (process.hrtime(this.#strart)[1] / 1e6).toFixed(3);
   }
 }
 

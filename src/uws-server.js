@@ -36,9 +36,27 @@ const PORT_SCHEMA_NODE = 'node';
 const ROUTER_TYPE_CONTROLLER = 'c';
 const ROUTER_TYPE_SERVICE = 's';
 
+const regexExecAll = (str, regex) => {
+	let lastMatch = null;
+	const matches = [];
+
+	while ((lastMatch = regex.exec(str))) {
+		matches.push(lastMatch);
+		if (!regex.global) break;
+	}
+
+	return matches;
+};
+
+
 const UwsServer = {
 	server: null,
 	name: 'web-server',
+	events: {
+		'$broker.started'() {
+			this.bindRoutes();
+		}
+	},
 	settings: {
 		port: 3000,
 		ssl: {},
@@ -49,7 +67,8 @@ const UwsServer = {
 		staticLastModified: true,
 		portSchema: 'node',
 		routes: [],
-		controllers: {}
+		controllers: {},
+		createRouteValidate: false
 	},
 
 	/*********************************/
@@ -110,27 +129,33 @@ const UwsServer = {
 		 * @param {CreateRouteOption} options
 		 */
 		createRoute(route, options = {} ) {
-				const regex = /^(get|post|any|options|head|put|connect|trace|patch|del) (.*) #([sc]):([a-z]+)\.([a-z]+)$/i;
-				const match = regex.exec(route);
-				if (match) {
-					const method = match[1].toLowerCase();
-					const path = match[2] ?? '';
-					const type = match[3] ?? '';
-					const controller = match[4] ?? '';
-					const action = match[5] ?? '';
-					const cache = options.cache ?? -1;
-					const onBefore = options.onBefore ?? null;
-					const onAfter = options.onAfter ?? null;
+			const regex = /^(get|post|any|options|head|put|connect|trace|patch|del) (.*) #([sc]):([a-z][\w-]+)\.([a-z][\w-]+)$/i;
 
-					switch (type) {
-						case ROUTER_TYPE_CONTROLLER:
-							this.addRoute({path, method, controller, action, cache, onBefore, onAfter});
-							break;
-						case ROUTER_TYPE_SERVICE:
-							this.addRoute({path, method, service: [controller, action].join('.'), cache, onBefore, onAfter});
-							break;
-					}
+			const match = regex.exec(route);
+			if (match) {
+				const method = match[1].toLowerCase();   // http type
+				const path = match[2] ?? '';             // url path
+				const type = match[3] ?? '';             // type controller or service
+				const controller = match[4] ?? '';       // name controller or service
+				const action = match[5] ?? '';           // name action
+				const cache = options.cache ?? -1;     // cache option
+				const onBefore = options.onBefore ?? null;
+				const onAfter = options.onAfter ?? null;
+
+				switch (type) {
+					case ROUTER_TYPE_CONTROLLER:
+						this.addRoute({path, method, controller, action, cache, onBefore, onAfter});
+						break;
+					case ROUTER_TYPE_SERVICE:
+						this.addRoute({path, method, service: [controller, action].join('.'), cache, onBefore, onAfter});
+						break;
 				}
+			}
+
+			if (this.settings.createRouteValidate && !match) {
+				throw new Error(`route "${route}" does not match the template ``"${regex.toString()}"`)
+			}
+
 		},
 
 		/**
@@ -139,6 +164,106 @@ const UwsServer = {
 		 */
 		addRoute(route) {
 			this.settings.routes.push(route);
+		},
+
+		/**
+		 * We go through all services where there is pointer to rest usage
+		 */
+		bindRoutesThroughAllService() {
+			const processed = new Set();
+			const services = this.broker.registry.services.list({
+				skipInternal: true,
+				onlyLocal: true,
+				withActions: true
+			});
+
+			for(const service of services) {
+				if (service.settings.server || service.settings.rest) {
+					for(const key in service.actions) {
+						const action = service.actions[key];
+						const {name, rest} = action;
+						this.createRoute(`${rest} #s:${name}`, {})
+					}
+					console.log(service)
+				}
+			}
+		},
+
+		bindRouteSettings() {
+
+			this.settings.routes.forEach((route) => {
+
+				this.getServerUws()[route.method](route.path,
+					/**
+					 * @param {HttpResponse} res
+					 * @param {HttpRequest} req
+					 * @return {Promise<void>}
+					 */
+					async (res, req) => {
+
+					const isService = route.service === void 0;
+
+					res.onAborted && res.onAborted(() => {
+						res.aborted = true;
+					});
+
+					// run before promise
+					if (route.onBefore) {
+						await this.Promise.method(route.onBefore, {route, res, req})
+					}
+
+					let controller, result;
+					// run controller.action
+					if (isService) {
+						[controller, result] = await this.runControllerAction(route.controller, route.action, res, req)
+					} else {
+						// convert index to named
+						const params = {};
+						if (route.path.includes(':')) {
+							const matches = regexExecAll(route.path, /(:\w+)/ig);
+							for(let i = 0; i < matches.length; i++) {
+								params[matches[i][0].substring(1)] = req.getParameter(i);
+							}
+						}
+						[controller, result] = [null, await this.broker.call(route.service, {
+							params
+						})];
+					}
+
+					// run after promise
+					if (route.onAfter) {
+						result = await this.Promise.method(route.onAfter, {route, res, req, data: result})
+					}
+
+					// append cork
+					if (!res.aborted) {
+
+						res.cork(() => {
+							// only controller
+							if (controller !== null) {
+								// write headers response
+								if (controller.headers) {
+									for (let key in controller.headers) {
+										res.writeHeader(key, controller.headers[key]);
+									}
+								}
+								// write cookie response
+								if (controller.cookieData) {
+									for (let key in controller.cookieData.resp) {
+										res.writeHeader('set-cookie', controller.cookieData.toHeader(key));
+									}
+								}
+								// write status response
+								if (controller.statusCodeText) {
+									res.writeStatus(controller.statusCodeText);
+								}
+							}
+
+							res.end(result);
+						});
+					}
+				});
+			});
 		},
 
 		/**
@@ -169,57 +294,13 @@ const UwsServer = {
 		},
 
 		/**
-		 * Bind native uws routers for array
+		 * Bind native uws routers
 		 */
 		bindRoutes() {
-			this.settings.routes.forEach((route) => {
-
-				this.getServerUws()[route.method](route.path, async (res, req) => {
-
-					res.onAborted && res.onAborted(() => {
-						res.aborted = true;
-					});
-
-					// run before promise
-					if (route.onBefore) {
-						await this.Promise.method(route.onBefore, {route, res, req})
-					}
-					// run controller.action or service.action
-					const [controller, result] = route.service === void 0
-						? await this.runControllerAction(route.controller, route.action, res, req)
-						: [null, await this.broker.call(route.service)]
-					// run after promise
-					if (route.onAfter) {
-						await this.Promise.method(route.onAfter, {route, res, req})
-					}
-					// append cork
-					if (!res.aborted) {
-						res.cork(() => {
-							// write headers response
-							if (controller !== null && controller.headers) {
-								for (let key in controller.headers) {
-									res.writeHeader(key, controller.headers[key]);
-								}
-							}
-							// write cookie response
-							if (controller !== null && controller.cookieData) {
-								for (let key in controller.cookieData.resp) {
-									res.writeHeader('set-cookie', controller.cookieData.toHeader(key));
-								}
-							}
-							// write status response
-							if (controller !== null && controller.statusCodeText) {
-								res.writeStatus(controller.statusCodeText);
-							}
-							res.end(result);
-						});
-					}
-				});
-			});
-
-			this.bindRoutesStatic();
+			this.bindRoutesThroughAllService();       // bind routes by services rest actions
+			this.bindRouteSettings();                 // bind routes by config
+			this.bindRoutesStatic();             			// bind routes by static files
 		},
-
 
 		/**
 		 * Get instance UwsServer server

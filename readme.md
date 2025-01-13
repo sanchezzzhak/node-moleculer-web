@@ -73,7 +73,6 @@ class AppService extends Service {
   createService() {
     // register routing where home is the controller and index is the method	
     this.createRoute('get / #c:home.index')
-    this.bindRoutes();
   }
 }
 module.exports = AppService
@@ -97,12 +96,11 @@ module.exports = AppService
 ### Router Options
 * `cache` - second http cache
 * `onBefore(route, req, res)` - Function before call for controller or service
-* `onAfter(route, req, res)` - Function after call for controller or service
+* `onAfter(route, req, res, data)` - Function after call for controller or service
 
 Example options for createRoute
 ```js
 this.createRoute('get / #c:home.index', {cache: 5});
-this.bindRoutes();
 ```
 
 
