@@ -1,14 +1,18 @@
-const Uws = require('uWebSockets.js');
-
-const fsPath = require('node:path');
-const getNextOpenPort = require('./utils/get-next-open-port');
-const uwsSendFile = require('./utils/uws-send-file');
-
 /**
  * @typedef {import("uWebSockets.js").TemplatedApp} TemplatedApp
  * @typedef {import("uWebSockets.js").HttpResponse} HttpResponse
  * @typedef {import("uWebSockets.js").HttpRequest} HttpRequest
  */
+
+const Uws = require('uWebSockets.js');
+const fsPath = require('node:path');
+const getNextOpenPort = require('./utils/get-next-open-port');
+const uwsSendFile = require('./utils/uws-send-file');
+const {RequestData, CookieData} = require("./index");
+const {readBody} = require("./read-body");
+const {redirectMetaTemplate, redirectJsTemplate} = require("./utils/helpers");
+const REDIRECT_TYPES = require("./redirect-types");
+
 
 /**
  * Decode param value.
@@ -16,7 +20,7 @@ const uwsSendFile = require('./utils/uws-send-file');
  * @return {String}
  * @private
  */
-function decodeRouterParam(val) {
+const decodeRouterParam = (val) => {
 	if (typeof val !== 'string' || val.length === 0) {
 		return val;
 	}
@@ -35,19 +39,6 @@ const PORT_SCHEMA_AUTO = 'auto';
 const PORT_SCHEMA_NODE = 'node';
 const ROUTER_TYPE_CONTROLLER = 'c';
 const ROUTER_TYPE_SERVICE = 's';
-
-const regexExecAll = (str, regex) => {
-	let lastMatch = null;
-	const matches = [];
-
-	while ((lastMatch = regex.exec(str))) {
-		matches.push(lastMatch);
-		if (!regex.global) break;
-	}
-
-	return matches;
-};
-
 
 const UwsServer = {
 	server: null,
@@ -189,6 +180,8 @@ const UwsServer = {
 			}
 		},
 
+
+
 		bindRouteSettings() {
 
 			this.settings.routes.forEach((route) => {
@@ -200,71 +193,65 @@ const UwsServer = {
 					 * @return {Promise<void>}
 					 */
 					async (res, req) => {
+						const isController = route.service === void 0;
 
-					const isService = route.service === void 0;
+						res.onAborted && res.onAborted(() => {
+							res.aborted = true;
+						});
 
-					res.onAborted && res.onAborted(() => {
-						res.aborted = true;
-					});
-
-					// run before promise
-					if (route.onBefore) {
-						await this.Promise.method(route.onBefore, {route, res, req})
-					}
-
-					let controller, result;
-					// run controller.action
-					if (isService) {
-						[controller, result] = await this.runControllerAction(route.controller, route.action, res, req)
-					} else {
-						// convert index to named
-						const params = {};
-						if (route.path.includes(':')) {
-							const matches = regexExecAll(route.path, /(:\w+)/ig);
-							for(let i = 0; i < matches.length; i++) {
-								params[matches[i][0].substring(1)] = req.getParameter(i);
-							}
+						// run before promise
+						if (route.onBefore) {
+							await this.Promise.method(route.onBefore, {route, res, req})
 						}
-						[controller, result] = [null, await this.broker.call(route.service, {
-							params
-						})];
-					}
 
-					// run after promise
-					if (route.onAfter) {
-						result = await this.Promise.method(route.onAfter, {route, res, req, data: result})
-					}
+						let controller = null,
+							result = null,
+							cookies = [],
+							statusCode = null,
+							statusCodeText = null,
+							headers = null;
 
-					// append cork
-					if (!res.aborted) {
+						if (isController) {
+							[controller, result, headers, cookies, statusCodeText]
+								= await this.runControllerAction(route.controller, route.action, res, req, route)
+						} else {
+							[controller, result, headers, cookies, statusCodeText]
+								= await this.runServiceAction(route.service, res, req, route);
+						}
 
-						res.cork(() => {
-							// only controller
-							if (controller !== null) {
+						// run after promise
+						if (route.onAfter) {
+							result = await this.Promise.method(route.onAfter, {route, res, req, data: result})
+						}
+
+						// append cork
+						if (!res.aborted) {
+							res.cork(() => {
 								// write headers response
-								if (controller.headers) {
-									for (let key in controller.headers) {
-										res.writeHeader(key, controller.headers[key]);
+								if (headers !== null) {
+									for (let key in headers) {
+										res.writeHeader(key, headers[key]);
 									}
 								}
 								// write cookie response
-								if (controller.cookieData) {
-									for (let key in controller.cookieData.resp) {
-										res.writeHeader('set-cookie', controller.cookieData.toHeader(key));
+								if (cookies !== null) {
+									for (let key in cookies) {
+										res.writeHeader('set-cookie', cookies[key]);
 									}
 								}
-								// write status response
-								if (controller.statusCodeText) {
-									res.writeStatus(controller.statusCodeText);
-								}
-							}
 
-							res.end(result);
-						});
-					}
-				});
+								// write status response
+								if (statusCodeText !== null) {
+									res.writeStatus(statusCodeText);
+								}
+
+								res.end(result);
+							});
+						}
+					});
 			});
 		},
+
 
 		/**
 		 * Bind routes static files response
@@ -312,28 +299,94 @@ const UwsServer = {
 		},
 
 		/**
+		 * run action in service
+		 *
+		 * @param {string} service
+		 * @param {HttpResponse} res
+		 * @param {HttpRequest} req
+		 * @param {RouteOptions} route
+		 * @return [null, result, headers, cookies, statusCodeText]
+		 */
+		async runServiceAction(service, res, req, route) {
+
+			let requestData = new RequestData(req, res, route);
+			let cookieData = new CookieData(req, res);
+			let postData = null;
+			let result = null;
+
+			// permission checks for post
+			if (route.method === 'post' && route.permission) {
+				if (route.permission.post) {
+					postData = await new Promise((resolve, reject) => {
+						readBody(res, resolve, reject);
+					});
+				}
+				// permission check read files
+				// if (route.permission.files) {
+				//
+				// }
+			}
+
+			let headers = {};
+			let cookies = {};
+			let statusCode = null;
+			let statusCodeText = null;
+
+			/** @type {string|ServiceRenderResponse} response */
+			let response = await this.broker.call(route.service, {
+				cookie: req.getHeader('cookie'),
+				requestData: requestData.getData(),
+				route: {
+					path: route.path,
+					method: route.method,
+					cache: route.cache
+				},
+				postData: postData
+			});
+
+			// convert response to data
+			if ( typeof response !== 'string') {
+				result = response.result;
+				statusCode = response.statusCode;
+				statusCodeText = response.statusCodeText
+				headers = response.headers;
+				cookies = response.cookies;
+			}
+
+			return [null, result, headers, cookies, statusCodeText];
+		},
+
+		/**
 		 * run action in controller
 		 *
 		 * @param {string} controller
 		 * @param {string} action
 		 * @param {HttpResponse} res
 		 * @param {HttpRequest} req
-		 * @param {RouteOptions|{}} route
-		 * @returns [controller, result]
+		 * @param {RouteOptions} route
+		 * @returns [controller, result, headers, cookies, statusCodeText]
 		 */
-		async runControllerAction(controller, action, res, req, route = {}) {
+		async runControllerAction(controller, action, res, req, route) {
 			controller = controller.toLowerCase();
 			action = action.toLowerCase();
 
 			if (!(this.settings.controllers[controller] ?? false)) {
 				return [null, `controller ${controller} not found`];
 			}
+
 			const controllerClass = this.settings.controllers[controller];
+
 			const inst = new controllerClass({
 				res,
 				req,
 				broker: this.broker,
-				route,
+				route: {
+					path: route.path,
+					method: route.method,
+					controller: route.controller,
+					action: route.action,
+					cache: route.cache
+				},
 			});
 
 			if (!(inst[action] ?? false)) {
@@ -341,7 +394,15 @@ const UwsServer = {
 			}
 
 			const result = await inst[action]();
-			return [inst, result];
+			const headers = inst.headers ?? {};
+			const statusCodeText = inst.statusCodeText;
+
+			const cookies = [];
+			for (let key in inst.cookieData.resp) {
+				cookies.push(inst.cookieData.toHeader(key));
+			}
+
+			return [inst, result, headers, cookies, statusCodeText];
 		},
 
 		/**

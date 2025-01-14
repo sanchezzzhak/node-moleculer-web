@@ -21,13 +21,41 @@ type RouteOptionMethod = "get" | "post" | "any" | "options"
 
 type PortSchemaOption = "node" | "auto";
 
-export interface RouteOptions {
-    path: string;
-    method: RouteOptionMethod | string;
-    controller?: string;
+export interface RouteMultipartLimitOptions {
+    fields: number;
+    files: number;
+    fileSize: number
+}
+
+export interface RouteRateLimitOptions {
+    limit: number
+}
+
+export interface RouteCorsOptions {
+    origin: string;
+}
+
+
+
+export interface RouteOptionsBase {
     action?: string;
-    service?: string;
+    authenticate?: boolean;
+    authorize?: boolean;
     cache?: number;
+    controller?: string;
+    cors: RouteCorsOptions;
+    method: RouteOptionMethod | string;
+    path: string;
+    permission?: {
+        post?: boolean
+        files?: boolean,
+        multipart?: RouteMultipartLimitOptions
+    }
+    service?: string;
+    rateLimit?: RouteRateLimitOptions,
+}
+
+export interface RouteOptions extends RouteOptionsBase{
     onBefore?: onBeforeFunc;
     onAfter?: onAfterFunc;
 }
@@ -88,7 +116,15 @@ export class RequestData {
     url: string;
     userAgent: string;
 
-    constructor(req: HttpRequest, res: HttpResponse)
+    setData(params: {}): void;
+
+    getData(): any;
+
+    constructor(
+        req: HttpRequest | null,
+        res: HttpResponse | null,
+        route: RouteOptionsBase | null
+    )
 }
 
 export interface CookieOptions {
@@ -111,7 +147,19 @@ export class CookieData {
     has(name: string): boolean;
     remove(name: string, options?: CookieOptions): void;
     toHeader(name: string): string;
-    constructor(req: HttpRequest, res: HttpResponse)
+
+    initFromString(str: string): void;
+    constructor(req: HttpRequest | null, res: HttpResponse | null)
+}
+
+export interface ServiceRenderResponse {
+    type: "render" | "redirect";
+    result: string;
+    format: string;
+    statusCode: number;
+    statusCodeText: number | string;
+    headers: { [key: string]: string };
+    cookies: string[];
 }
 
 export interface AbstractControllerOptions {
@@ -120,6 +168,8 @@ export interface AbstractControllerOptions {
     res: HttpResponse;
 }
 
+type RedirectType = "meta" | "header" | "js";
+
 export class AbstractController {
     requestData: RequestData;
     cookieData: CookieData;
@@ -127,7 +177,7 @@ export class AbstractController {
     format: string;
     statusCode: number;
     statusCodeText: string;
-    redirectType: string;
+    redirectType: RedirectType;
     headers: {
         [name: string]: any;
     }

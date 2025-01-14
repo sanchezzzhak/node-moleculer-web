@@ -6,41 +6,13 @@ const Timer = require("./utils/timer");
 const RequestData = require("./request-data");
 const CookieData = require("./cookie-data");
 const JWT = require("./utils/jwt");
+const {readBody} = require("./read-body");
+const {redirectMetaTemplate, redirectJsTemplate} = require("./utils/helpers");
 
 /** @typedef {import("uWebSockets.js").HttpRequest} HttpRequest */
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
 
-/**
- * callback async read post data for chunks
- * @param res
- * @param cb
- * @param err
- * @private
- */
-const readBody = (res, cb, err) => {
-	let buffer;
-	/* Register data cb */
-	res.onData((ab, isLast) => {
-		let chunk = Buffer.from(ab);
-		if (isLast) {
-			if (buffer) {
-				cb(Buffer.concat([buffer, chunk]));
-				return;
-			}
-			cb(chunk);
-			return;
-		}
 
-		if (buffer) {
-			buffer = Buffer.concat([buffer, chunk]);
-			return;
-		}
-		buffer = Buffer.concat([chunk]);
-	});
-
-	/* Register error cb */
-	res.onAborted(err);
-};
 
 class AbstractController {
 	/** @type {RequestData|null} */
@@ -66,13 +38,16 @@ class AbstractController {
 	/** redirect type for the redirect method */
 	redirectType = REDIRECT_TYPES.REDIRECT_TYPE_META;
 
+	/*** @type {RouteOptionsBase} current route */
+	route
+
 	constructor(opts = {}) {
 		this.broker = opts.broker;
 		this.req = opts.req;
 		this.res = opts.res;
+		this.route = opts.route
 		this.timer = new Timer;
 		this.timer.start();
-
 	}
 
 	/**
@@ -117,7 +92,7 @@ class AbstractController {
 	 * Init requestData and cookieData components to properties
 	 */
 	initRequest() {
-		this.requestData = new RequestData(this.req, this.res);
+		this.requestData = new RequestData(this.req, this.res, this.route);
 		this.cookieData = new CookieData(this.req, this.res);
 		if (this.clientHints) {
 			this.setClientHintsHeaders();
@@ -232,13 +207,17 @@ class AbstractController {
 		});
 	}
 
+	getStatusCodeText(httpCode) {
+		return `${(HTTP_CODES[httpCode] ?? httpCode)}`
+	}
+
 	/**
 	 * Set http status
 	 * @param {number} httpCode
 	 */
 	setStatus(httpCode) {
 		this.statusCode = httpCode;
-		this.statusCodeText = `${(HTTP_CODES[httpCode] ?? httpCode)}`
+		this.statusCodeText = this.getStatusCodeText(httpCode)
 	}
 
 	/**
@@ -247,23 +226,18 @@ class AbstractController {
 	 * @param {number} httpCode
 	 */
 	redirect(location, httpCode = 301) {
-		const encodedLoc = location.replace(/"/g, "%22");
-
 		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_META) {
 			this.setStatus(httpCode);
 			this.writeHeader('location', location);
-			return `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${encodedLoc}"></head></html>`;
+			return redirectMetaTemplate(location);
 		}
-
 		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_JS) {
-			return `<!DOCTYPE html><html><head><script>window.location.href='${location}'</script></head></html>`;
+			return redirectJsTemplate(location);
 		}
-
 		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_HEADER) {
 			this.setStatus(httpCode);
 			this.writeHeader('location', location);
 		}
-
 		return '';
 	}
 

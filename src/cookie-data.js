@@ -41,7 +41,23 @@ class CookieData {
 	 * @param {HttpResponse} res
 	 */
 	constructor(req, res) {
-		let cookies = req.getHeader('cookie').split('; ')
+		if (req && res) {
+			this.#instance(req, res)
+		}
+	}
+
+	/**
+	 * init and parse cookie for request data
+	 * @param {HttpRequest} req
+	 * @param {HttpResponse} res
+	 */
+	#instance(req, res) {
+		this.initFromString(req.getHeader('cookie'))
+
+	}
+
+	initFromString(string){
+		let cookies = string.split('; ')
 		let jar = {};
 		for (let i = 0; i < cookies.length; i++) {
 			let parts = cookies[i].split('=')
