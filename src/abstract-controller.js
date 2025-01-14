@@ -1,13 +1,13 @@
 const ejs = require('ejs');
 const {getMime} = require('./utils/mime');
 const REDIRECT_TYPES = require("./redirect-types");
-const HTTP_CODES = require('./utils/http-codes');
 const Timer = require("./utils/timer");
-const RequestData = require("./request-data");
-const CookieData = require("./cookie-data");
+const CookieData= require("./cookie-data");
+const RequestData= require("./request-data");
 const JWT = require("./utils/jwt");
 const {readBody} = require("./read-body");
 const {redirectMetaTemplate, redirectJsTemplate} = require("./utils/helpers");
+const {getStatusCodeText} = require("./utils/http-status");
 
 /** @typedef {import("uWebSockets.js").HttpRequest} HttpRequest */
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
@@ -207,17 +207,13 @@ class AbstractController {
 		});
 	}
 
-	getStatusCodeText(httpCode) {
-		return `${(HTTP_CODES[httpCode] ?? httpCode)}`
-	}
-
 	/**
 	 * Set http status
 	 * @param {number} httpCode
 	 */
 	setStatus(httpCode) {
 		this.statusCode = httpCode;
-		this.statusCodeText = this.getStatusCodeText(httpCode)
+		this.statusCodeText = getStatusCodeText(httpCode)
 	}
 
 	/**

@@ -53,7 +53,6 @@ class CookieData {
 	 */
 	#instance(req, res) {
 		this.initFromString(req.getHeader('cookie'))
-
 	}
 
 	initFromString(string){

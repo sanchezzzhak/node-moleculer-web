@@ -3,16 +3,12 @@
  * @typedef {import("uWebSockets.js").HttpResponse} HttpResponse
  * @typedef {import("uWebSockets.js").HttpRequest} HttpRequest
  */
-
 const Uws = require('uWebSockets.js');
 const fsPath = require('node:path');
 const getNextOpenPort = require('./utils/get-next-open-port');
 const uwsSendFile = require('./utils/uws-send-file');
-const {RequestData, CookieData} = require("./index");
+const RequestData= require("./request-data");
 const {readBody} = require("./read-body");
-const {redirectMetaTemplate, redirectJsTemplate} = require("./utils/helpers");
-const REDIRECT_TYPES = require("./redirect-types");
-
 
 /**
  * Decode param value.
@@ -151,7 +147,7 @@ const UwsServer = {
 
 		/**
 		 * Add route to collection list
-		 * @param {RouteOptions} route
+		 * @param {RouteOptions|{}} route
 		 */
 		addRoute(route) {
 			this.settings.routes.push(route);
@@ -169,13 +165,12 @@ const UwsServer = {
 			});
 
 			for(const service of services) {
-				if (service.settings.server || service.settings.rest) {
+				if (service.settings.uwsHttp) {
 					for(const key in service.actions) {
 						const action = service.actions[key];
 						const {name, rest} = action;
-						this.createRoute(`${rest} #s:${name}`, {})
+						this.createRoute(`${rest} #s:${name}`)
 					}
-					console.log(service)
 				}
 			}
 		},
@@ -193,16 +188,9 @@ const UwsServer = {
 					 * @return {Promise<void>}
 					 */
 					async (res, req) => {
-						const isController = route.service === void 0;
-
 						res.onAborted && res.onAborted(() => {
 							res.aborted = true;
 						});
-
-						// run before promise
-						if (route.onBefore) {
-							await this.Promise.method(route.onBefore, {route, res, req})
-						}
 
 						let controller = null,
 							result = null,
@@ -211,11 +199,16 @@ const UwsServer = {
 							statusCodeText = null,
 							headers = null;
 
-						if (isController) {
+						// run before promise
+						if (route.onBefore) {
+							await this.Promise.method(route.onBefore, {route, res, req})
+						}
+
+						if (route.controller) {
 							[controller, result, headers, cookies, statusCodeText]
 								= await this.runControllerAction(route.controller, route.action, res, req, route)
 						} else {
-							[controller, result, headers, cookies, statusCodeText]
+							[result, headers, cookies, statusCodeText]
 								= await this.runServiceAction(route.service, res, req, route);
 						}
 
@@ -305,12 +298,10 @@ const UwsServer = {
 		 * @param {HttpResponse} res
 		 * @param {HttpRequest} req
 		 * @param {RouteOptions} route
-		 * @return [null, result, headers, cookies, statusCodeText]
+		 * @return [result, headers, cookies, statusCodeText]
 		 */
 		async runServiceAction(service, res, req, route) {
-
 			let requestData = new RequestData(req, res, route);
-			let cookieData = new CookieData(req, res);
 			let postData = null;
 			let result = null;
 
@@ -353,7 +344,7 @@ const UwsServer = {
 				cookies = response.cookies;
 			}
 
-			return [null, result, headers, cookies, statusCodeText];
+			return [result, headers, cookies, statusCodeText];
 		},
 
 		/**
@@ -371,7 +362,7 @@ const UwsServer = {
 			action = action.toLowerCase();
 
 			if (!(this.settings.controllers[controller] ?? false)) {
-				return [null, `controller ${controller} not found`];
+				return [null, `controller ${controller} not found`, null, null, null];
 			}
 
 			const controllerClass = this.settings.controllers[controller];
@@ -390,7 +381,7 @@ const UwsServer = {
 			});
 
 			if (!(inst[action] ?? false)) {
-				return [null, `method ${action} for controller ${controller} not found`]
+				return [null, `method ${action} for controller ${controller} not found`, null, null, null]
 			}
 
 			const result = await inst[action]();

@@ -17,6 +17,10 @@
     "qs": "^6.12.1",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.48.0"
   },
+  "devDependencies": {
+    "mocha": "^11.0.1",
+    "chai": "^4.5.0"
+  },
   "engines": {
     "node": ">= 20.x",
     "npm": ">= 10.x"

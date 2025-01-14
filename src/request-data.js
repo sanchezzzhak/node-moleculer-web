@@ -1,4 +1,4 @@
-const qs= require('qs');
+const qs = require('qs');
 
 const {regexExecAll} = require("./utils/helpers");
 
@@ -6,6 +6,7 @@ const {regexExecAll} = require("./utils/helpers");
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
 
 class RequestData {
+
 	headers = {};
 	host = '';
 	ip = '';
@@ -21,8 +22,8 @@ class RequestData {
 	 * @param {HttpResponse|null} res
 	 * @param {RouteOptionsBase|null} route
 	 */
-	constructor(req= null, res= null, route= null) {
-		if (req !== null && res !==null && route !== null) {
+	constructor(req = null, res = null, route = null) {
+		if (req && res && route) {
 			this.#instance(req, res, route);
 		}
 	}
@@ -63,7 +64,7 @@ class RequestData {
 		return params;
 	}
 
-	setData(params ={}) {
+	setData(params = {}) {
 		this.host = params.host;
 		this.headers = params.headers;
 		this.ip = params.ip;

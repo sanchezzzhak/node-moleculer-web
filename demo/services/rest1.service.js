@@ -1,14 +1,15 @@
 const {Service} = require("moleculer");
-
+const {HttpMixin} = require("../../src");
 
 class Rest1Service extends Service {
 	constructor(broker) {
 		super(broker);
 		this.parseServiceSchema({
 			name: 'rest1',
-			settings: {
-				rest: true
-			},
+			settings: {test:1},
+			mixins: [
+				HttpMixin
+			],
 			actions: {
 				hello: {
 					rest: 'GET /hello',

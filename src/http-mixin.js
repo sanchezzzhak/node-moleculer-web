@@ -2,8 +2,9 @@ const ejs = require('ejs');
 const {getMime} = require("./utils/mime");
 const {redirectMetaTemplate, redirectJsTemplate} = require("./utils/helpers");
 const REDIRECT_TYPES = require("./redirect-types");
-const {RequestData, CookieData} = require("./index");
-const HTTP_CODES = require("./utils/http-codes");
+const CookieData= require("./cookie-data");
+const RequestData= require("./request-data");
+const {getStatusCodeText} = require("./utils/http-status");
 
 /**
  *
@@ -24,7 +25,7 @@ const createResponse = ({
 }) => {
 
 	const cookies = [];
-	if (cookiesData) {
+	if (cookieData) {
 		for (let key in cookieData.resp) {
 			cookies.push(cookieData.toHeader(key))
 		}
@@ -43,11 +44,14 @@ const createResponse = ({
 	};
 }
 
-const getStatusCodeText = (httpCode) => {
-	return `${(HTTP_CODES[httpCode] ?? httpCode)}`
-}
+
 
 const HttpMixin = {
+
+	settings: {
+		uwsHttp: true
+	},
+
 	methods: {
 		/**
 		 * get instance CookieData from Context.params

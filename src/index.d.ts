@@ -214,21 +214,28 @@ export class AbstractController {
     redirect(location: string, httpCode: number): string;
 }
 
+export interface HttpMixin {
+    methods: {}
+}
+
 export interface UwsServer {
     server: TemplatedApp | null;
     name: string;
     settings: UwsServerSettings;
-
     created(): Promise<void>;
-
     started(): Promise<void>;
-
     methods: {
         createRoute(route: string, options: CreateRouteOption): void;
         addRoute(route: RouteOptions): void;
         bindRoutes(): void;
         bindRoutesStatic(): void;
         getServerUws(): TemplatedApp | null;
+        runServiceAction(
+            service: string,
+            res: HttpResponse,
+            req: HttpRequest,
+            route: RouteOptions
+        ): Promise<Array<any>>;
         runControllerAction(
             controller: string,
             action: string,
