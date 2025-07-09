@@ -1,6 +1,6 @@
 const qs = require('qs');
 
-const {regexExecAll} = require("./utils/helpers");
+const {regexExecAll, convertIpv6toIpv4, isValidIpv6, getFullIpv6} = require("./utils/helpers");
 
 /** @typedef {import("uWebSockets.js").HttpRequest} HttpRequest */
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
@@ -40,12 +40,21 @@ class RequestData {
 		});
 		this.ip = Buffer.from(res.getRemoteAddressAsText()).toString();
 		this.ipProxy = Buffer.from(res.getProxiedRemoteAddressAsText()).toString();
+		this.ip = convertIpv6toIpv4(this.ip);
 		this.queryRaw = req.getQuery() ?? '';
 		this.query = qs.parse(`${this.queryRaw}`) ?? {};
 		this.referer = req.getHeader('referer') ?? '';
 		this.url = req.getUrl();
 		this.userAgent = req.getHeader('user-agent') ?? '';
 		this.parameters = this.#parseRouteParametersFromRequest(route.path, req)
+    // for proxy nginx
+		if (this.ip === '127.0.0.1' && this.headers['x-nginx-proxy'] && this.headers['x-real-ip']) {
+			this.ip = this.headers['x-real-ip'];
+		}
+		// normalize ipv6
+		if (isValidIpv6(this.ip)) {
+			this.ip = getFullIpv6(this.ip);
+		}
 	}
 
 	/**

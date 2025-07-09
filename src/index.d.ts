@@ -102,7 +102,7 @@ export interface RenderOptions {
     format?: string | null;
 }
 
-export class RequestData {
+export class RequestData  {
     headers: {
         [name: string]: string;
     };
@@ -159,7 +159,21 @@ export interface ServiceRenderResponse {
     statusCode: number;
     statusCodeText: number | string;
     headers: { [key: string]: string };
-    cookies: string[];
+    cookies: string;
+    request: {
+        headers: {
+            [name: string]: string;
+        };
+        host: string;
+        ip: string;
+        ipProxy: string;
+        query: {
+            [name: string]: any;
+        };
+        queryRaw: string;
+        url: string;
+        userAgent: string;
+    }
 }
 
 export interface AbstractControllerOptions {

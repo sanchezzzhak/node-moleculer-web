@@ -21,6 +21,7 @@ const createResponse = ({
 	httpCode = 200,
 	headers = {},
 	cookieData = null,
+	requestData = null,
 	format = 'html'
 }) => {
 
@@ -46,7 +47,7 @@ const createResponse = ({
 
 
 
-const HttpMixin = {
+const HttpService = {
 
 	settings: {
 		uwsHttp: true
@@ -58,8 +59,8 @@ const HttpMixin = {
 		 * @param params
 		 * @return {CookieData}
 		 */
-		initCookieData(params = {}) {
-			let obj = new CookieData(null, null);
+		initCookieDataFromParams(params = {}) {
+			const obj = new CookieData(null, null);
 			params.cookie && obj.initFromString(params.cookie);
 			return obj;
 		},
@@ -69,9 +70,9 @@ const HttpMixin = {
 		 * @param params
 		 * @return {RequestData}
 		 */
-		initRequestData(params = {}) {
-			let obj = new RequestData(null, null, null);
-			params.requestData && obj.setData(params.requestData)
+		initRequestDataFromParams(params = {}) {
+			const obj = new RequestData(null, null, null);
+			params.request && obj.setData(params.request)
 			return obj;
 		},
 
@@ -82,6 +83,7 @@ const HttpMixin = {
 		 * @param {string|null} format
 		 * @param {{}} headers
 		 * @param {CookieData} cookieData
+		 * @param {RequestData} requestData
 		 * @return {ServiceRenderResponse}
 		 */
 		renderRaw({
@@ -89,7 +91,7 @@ const HttpMixin = {
 				httpCode,
 				format,
 				headers,
-				cookieData
+				cookieData,
 		} = {}) {
 			return createResponse({
 				type: "render",
@@ -97,7 +99,7 @@ const HttpMixin = {
 				format,
 				httpCode,
 				headers,
-				cookieData
+				cookieData,
 			});
 		},
 
@@ -185,4 +187,4 @@ const HttpMixin = {
 }
 
 
-module.exports = HttpMixin;
+module.exports = HttpService;

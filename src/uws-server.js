@@ -9,6 +9,7 @@ const getNextOpenPort = require('./utils/get-next-open-port');
 const uwsSendFile = require('./utils/uws-send-file');
 const RequestData= require("./request-data");
 const {readBody} = require("./read-body");
+const CookieData = require("./cookie-data");
 
 /**
  * Decode param value.
@@ -61,6 +62,14 @@ const UwsServer = {
 	/*********************************/
 	/* Private microservice methods: */
 	/*********************************/
+
+	/**
+	 * Bind service.stopped for molecularjs
+	 * @return {Promise<void>}
+	 */
+	async stopped() {
+		this.getServerUws()?.close();
+	},
 
 	/**
 	 * Bind service.created for molecularjs
@@ -157,7 +166,6 @@ const UwsServer = {
 		 * We go through all services where there is pointer to rest usage
 		 */
 		bindRoutesThroughAllService() {
-			const processed = new Set();
 			const services = this.broker.registry.services.list({
 				skipInternal: true,
 				onlyLocal: true,
@@ -175,12 +183,9 @@ const UwsServer = {
 			}
 		},
 
-
-
 		bindRouteSettings() {
 
 			this.settings.routes.forEach((route) => {
-
 				this.getServerUws()[route.method](route.path,
 					/**
 					 * @param {HttpResponse} res
@@ -227,7 +232,7 @@ const UwsServer = {
 									}
 								}
 								// write cookie response
-								if (cookies !== null) {
+								if (cookies) {
 									for (let key in cookies) {
 										res.writeHeader('set-cookie', cookies[key]);
 									}
@@ -324,9 +329,9 @@ const UwsServer = {
 			let statusCodeText = null;
 
 			/** @type {string|ServiceRenderResponse} response */
-			let response = await this.broker.call(route.service, {
-				cookie: req.getHeader('cookie'),
-				requestData: requestData.getData(),
+			const response = await this.broker.call(route.service, {
+				cookies: req.getHeader('cookie'),
+				request: requestData.getData(),
 				route: {
 					path: route.path,
 					method: route.method,
@@ -358,9 +363,6 @@ const UwsServer = {
 		 * @returns [controller, result, headers, cookies, statusCodeText]
 		 */
 		async runControllerAction(controller, action, res, req, route) {
-			controller = controller.toLowerCase();
-			action = action.toLowerCase();
-
 			if (!(this.settings.controllers[controller] ?? false)) {
 				return [null, `controller ${controller} not found`, null, null, null];
 			}
@@ -389,10 +391,11 @@ const UwsServer = {
 			const statusCodeText = inst.statusCodeText;
 
 			const cookies = [];
-			for (let key in inst.cookieData.resp) {
-				cookies.push(inst.cookieData.toHeader(key));
+			if (inst.cookieData) {
+				for (let key in inst.cookieData.resp) {
+					cookies.push(inst.cookieData.toHeader(key));
+				}
 			}
-
 			return [inst, result, headers, cookies, statusCodeText];
 		},
 

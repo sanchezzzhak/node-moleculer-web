@@ -1,10 +1,10 @@
 
 const UwsServer = require('./uws-server')
-const HttpMixin = require('./http-mixin')
+const HttpService = require('./http-service')
 const AbstractController = require('./abstract-controller')
 
 module.exports = {
 	UwsServer,
-	HttpMixin,
+	HttpService,
 	AbstractController
 }

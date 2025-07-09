@@ -1,28 +1,23 @@
 const {Service} = require("moleculer");
-const {HttpServer} = require("../../src");
+const {HttpService} = require("../../src");
 
 class Rest1Service extends Service {
 	constructor(broker) {
 		super(broker);
 		this.parseServiceSchema({
 			name: 'rest1',
-			settings: {test:1},
 			mixins: [
-				HttpServer
+				HttpService
 			],
 			actions: {
 				hello: {
 					rest: 'GET /hello',
 					handler(ctx) {
+						console.log();
+
 						return 'Hello API Gateway!'
 					}
 				},
-				hello2: {
-					rest: 'GET /hello2/:test1/:test2',
-					handler(ctx) {
-						return 'Hello API Gateway!'
-					}
-				}
 			},
 		});
 	}
