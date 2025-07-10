@@ -19,6 +19,14 @@ class TestController extends AbstractController {
 	async actionMetaRedirect() {
 		return this.redirect('http://localhost:8080/test', 301);
 	}
+
+	async actionBzt() {
+		this.initRequest()
+		const data = this.requestData.getData();
+		return this.asJson({data}, 200);
+	}
+
+
 }
 
 class AppService extends Service {
@@ -50,6 +58,7 @@ class AppService extends Service {
 		this.createRoute('get /test/unknown #c:test.actionUnknown');
 		this.createRoute('get /test/meta-redirect #c:test.actionMetaRedirect');
 		this.createRoute('get /ping #c:ping.actionIndex');
+		this.createRoute('get /bzt #c:test.actionBzt');
 	}
 }
 

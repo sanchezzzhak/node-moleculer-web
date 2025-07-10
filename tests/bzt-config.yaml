@@ -1,0 +1,13 @@
+execution:
+  - concurrency: 300
+    ramp-up: 1m
+    hold-for: 5m
+    scenario: quick-test1
+scenarios:
+  quick-test1:
+    requests:
+      - http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd4
+      - http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd5
+      - http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd6
+      - http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd7
+      - http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd8

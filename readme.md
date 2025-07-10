@@ -16,7 +16,6 @@ High-performance web server integration for [Moleculer](https://moleculer.servic
 
 ---
 
-
 ### 🚀 Installation
 ```bash
 npm install node-moleculer-web
@@ -52,7 +51,6 @@ class AppService extends Service {
           port: process.evn.SERVER_PORT ?? 3101,
           // on what ip to listen
           ip: process.evn.SERVER_IP ?? '127.0.0.1',
-
           portSchema: process.evn.SERVER_SCHEMA ?? 'node',              
           // if statics are not needed, just remove next parameters  
           publicDir: __dirname + '/../public',
@@ -171,9 +169,6 @@ this.createRoute('get / #c:home.index', {cache: 5});
   * REDIRECT_TYPE_JS: JavaScript-based redirect.
   * REDIRECT_TYPE_HEADER: Standard HTTP Location header redirect.
 
-
-
-
 ### Example Controllers
 response json object
 ```js
@@ -187,7 +182,7 @@ response redirect to other url
 ```js
 class Home extends AbstractController {
   async index() {
-    return this.redirect('https://youdomain.dev', 301);
+    return this.redirect('https://youdomain.dev', 301 /* optional*/ , "meta" /* optional*/ );
   }
 }
 ```
@@ -273,22 +268,22 @@ module.exports = class Home extends AbstractController {
 const { AbstractController } = require('node-moleculer-web');
 
 module.exports = class Home extends AbstractController {
-	/**
-	 * Calls another microservice and returns the result as JSON
-	 */
-	async index() {
-		try {
-			const data = await this.broker.call('service-name.action', {
-				email: 'test@example.com'
-			}) ?? {};
-			return this.asJson(data, 200);
-		} catch (error) {
-			return this.asJson({
-				error: error.message,
-				code: error.code || 500
-			}, error.code || 500);
-		}
-	}
+  /**
+   * Calls another microservice and returns the result as JSON
+   */
+  async index() {
+    try {
+      const data = await this.broker.call('service-name.action', {
+        email: 'test@example.com'
+      }) ?? {};
+      return this.asJson(data, 200);
+    } catch (error) {
+      return this.asJson({
+        error: error.message,
+        code: error.code || 500
+      }, error.code || 500);
+    }
+  }
 };
 ```
 #### 📥 Read POST Request Body Example
@@ -296,21 +291,21 @@ module.exports = class Home extends AbstractController {
 const { AbstractController } = require('node-moleculer-web');
 
 module.exports = class Home extends AbstractController {
-	/**
-	 * Reads the request body and returns it as JSON
-	 */
-	async index() {
-		try {
-			const body = await this.readBody();
-			return this.asJson({ body }, 200);
-
-		} catch (error) {
-			return this.asJson({
-				error: 'Failed to read request body',
-				message: error.message
-			}, 400);
-		}
-	}
+  /**
+   * Reads the request body and returns it as JSON
+   */
+  async index() {
+    try {
+      const body = await this.readBody();
+      return this.asJson({ body }, 200);
+  
+    } catch (error) {
+      return this.asJson({
+        error: 'Failed to read request body',
+        message: error.message
+      }, 400);
+    }
+  }
 };
 ```
 
@@ -467,3 +462,46 @@ module.exports = {
   logger: console
 };
 ```
+
+---
+
+#### BZT Benchmark (install view docs https://gettaurus.org/)
+run app
+```bash
+node tests/services/local.js
+```
+run strestest minimal logic
+```bash
+bzt tests/bzt-config.yaml
+```
+
+![bzt-test.png](tests%2Fpublic%2Fbzt-test.png)
+```log
+22:41:17 INFO: Test duration: 0:06:03
+22:41:17 INFO: Samples count: 12909515, 0.00% failures
+22:41:17 INFO: Average times: total 0.008, latency 0.008, connect 0.000
+22:41:17 INFO: Percentiles:
++---------------+---------------+
+| Percentile, % | Resp. Time, s |
++---------------+---------------+
+|           0.0 |           0.0 |
+|          50.0 |         0.006 |
+|          90.0 |         0.016 |
+|          95.0 |         0.018 |
+|          99.0 |         0.025 |
+|          99.9 |         0.038 |
+|         100.0 |         0.058 |
++---------------+---------------+
+22:41:17 INFO: Request label stats:
++---------------------------------------------------------------------------+--------+---------+--------+-------+
+| label                                                                     | status |    succ | avg_rt | error |
++---------------------------------------------------------------------------+--------+---------+--------+-------+
+| http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd4 |   OK   | 100.00% |  0.016 |       |
+| http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd5 |   OK   | 100.00% |  0.006 |       |
+| http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd6 |   OK   | 100.00% |  0.005 |       |
+| http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd7 |   OK   | 100.00% |  0.005 |       |
+| http://localhost:8080/bzt?id=39641&&hash=104bdfd40acf8d03e6b485e11b681fd8 |   OK   | 100.00% |  0.006 |       |
++---------------------------------------------------------------------------+--------+---------+--------+-------+
+```
+
+---
