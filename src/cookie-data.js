@@ -89,7 +89,9 @@ class CookieData {
 	 * @return {string}
 	 */
 	toHeader(name) {
+
 		let data = this.resp[name] ?? {};
+
 		let headers = [
 			`${name}=${data.value ?? ''}`,
 			data.path ? `; Path=${data.path}`: '',

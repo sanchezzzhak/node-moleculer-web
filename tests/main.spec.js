@@ -62,8 +62,20 @@ describe('tests', function () {
 		const instance = instanceAxios('text');
 		const response = await instance.get(`test`);
 		assert.equal('index test content', response.data)
-		//
-		// console.log({data});
 	})
+	it('test rest1 service', async () => {
 
+		// test first request and get cookie
+		const instance = instanceAxios('text');
+		let response = await instance.get(`hello`);
+		assert.equal(response.headers['set-cookie'][0], 'test_cookie=2; Path=/')
+		assert.equal('Hello REST1', response.data)
+
+		// test second write and update cookie
+		response = await instance.get(`hello`, {
+			headers: {'Cookie': 'test_cookie=2; user_pref=dark_mode'}
+		});
+		assert.equal(response.headers['set-cookie'][0], 'test_cookie=3; Path=/')
+		assert.equal('Hello REST1', response.data)
+	})
 })

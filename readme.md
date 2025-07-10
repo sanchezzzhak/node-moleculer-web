@@ -105,7 +105,6 @@ Example options for createRoute
 this.createRoute('get / #c:home.index', {cache: 5});
 ```
 
-
 ### AbstractController properties:
 
 | **property**                                                                                                                                  | **description**                              |
@@ -337,8 +336,6 @@ class Home extends AbstractController {
 }
 ```
 
-
-
 Extend rest service
 ```js
 const {HttpMixin} = require('node-moleculer-web');
@@ -362,23 +359,40 @@ class RestService extends Service {
 				hello2: {
 					rest: 'GET /hello2/:test1/:test2',
 					handler(ctx) {
+						// read request data for meta object
+						console.log('requestData', ctx.meta.requestData)
+            // read cookie
+						ctx.meta.cookieData.get('test', 0);
+						// write cookie 
+						ctx.meta.cookieData.set('test', 2);
+						// write header
+						ctx.meta.headers['my-custom-header'] = 'lama';
 						return 'Hello2 API Gateway!'
 					}
-				}
+				},
+        
+				testJson: {
+					rest: 'GET /hello3/test/json',
+					handler(ctx) {
+						return this.asJson(ctx, {
+							myvalue: 111
+            })
+          }
+        },
+        
+        testRedirect: {
+					rest: 'GET /hello3/test/redirect',
+					handler(ctx) {
+						return this.redirect(ctx, 'https://google.com', 301, 'meta')
+					}
+        }
+				
 			},
 		});
 	}
 }
 ```
 
-Controller API
---
-
-Mixin API UwsServer
---
-
-Mixin API HttpMixin
---
 
 ### NGINX config if request proxying is used for once instance
 ```ngnix

@@ -7,41 +7,32 @@ const RequestData= require("./request-data");
 const {getStatusCodeText} = require("./utils/http-status");
 
 /**
- *
- * @param type
- * @param result
- * @param httpCode
- * @param headers
- * @param cookies
+ * @typedef {import("moleculer").Context} Context
+ */
+
+
+/**
+ * @param {Context} ctx
+ * @param {string} type
+ * @param {string|null} result
+ * @param {number} httpCode
+ * @param {string} format
  * @return {ServiceRenderResponse}
  */
 const createResponse = ({
+	ctx,
 	type,
 	result = null,
 	httpCode = 200,
-	headers = {},
-	cookieData = null,
-	requestData = null,
 	format = 'html'
 }) => {
-
-	const cookies = [];
-	if (cookieData) {
-		for (let key in cookieData.resp) {
-			cookies.push(cookieData.toHeader(key))
-		}
-	}
+	ctx.meta.headers['content-type']  = getMime('.' + format)
+	ctx.meta.statusCode = httpCode
+	ctx.meta.statusCodeText = getStatusCodeText(httpCode)
 
 	return {
 		type,
 		result,
-		statusCode: httpCode,
-		statusCodeText: getStatusCodeText(httpCode),
-		headers: {
-			'content-type': getMime('.' + format),
-			...headers
-		},
-		cookies,
 	};
 }
 
@@ -52,65 +43,37 @@ const HttpService = {
 	settings: {
 		uwsHttp: true
 	},
-
 	methods: {
 		/**
-		 * get instance CookieData from Context.params
-		 * @param params
-		 * @return {CookieData}
-		 */
-		initCookieDataFromParams(params = {}) {
-			const obj = new CookieData(null, null);
-			params.cookie && obj.initFromString(params.cookie);
-			return obj;
-		},
-
-		/**
-		 * get instance RequestData from Context.params
-		 * @param params
-		 * @return {RequestData}
-		 */
-		initRequestDataFromParams(params = {}) {
-			const obj = new RequestData(null, null, null);
-			params.request && obj.setData(params.request)
-			return obj;
-		},
-
-		/**
 		 * Render as text
+		 * @param {Context} ctx
 		 * @param {string} view
 		 * @param {number|null} httpCode
 		 * @param {string|null} format
-		 * @param {{}} headers
-		 * @param {CookieData} cookieData
-		 * @param {RequestData} requestData
 		 * @return {ServiceRenderResponse}
 		 */
 		renderRaw({
 				view,
 				httpCode,
 				format,
-				headers,
-				cookieData,
+				ctx
 		} = {}) {
 			return createResponse({
+				ctx,
 				type: "render",
 				result: view,
 				format,
-				httpCode,
-				headers,
-				cookieData,
+				httpCode
 			});
 		},
 
 		/**
 		 * Render ejs template
+		 * @param {Context} ctx
 		 * @param {string} template
-		 * @param {{}} params
+		 * @param {JSONObject|{[name: string|number]: any}} params
 		 * @param {number} httpCode
 		 * @param {string} format
-		 * @param {{}} headers
-		 * @param {CookieData} cookieData
 		 * @return {ServiceRenderResponse}
 		 */
 		render({
@@ -118,15 +81,13 @@ const HttpService = {
 			 params = {},
 			 httpCode = 200,
 			 format= 'html',
-			 headers = {},
-			 cookieData = null
+			 ctx
 		} = {}) {
 			return this.renderRaw({
 				view: ejs.render(template, params),
 				httpCode,
 				format,
-				headers,
-				cookieData
+				ctx
 			});
 		},
 
@@ -134,53 +95,48 @@ const HttpService = {
 		 * @param {string} location
 		 * @param {number} httpCode
 		 * @param {RedirectType} redirectType
-		 * @param {{}} headers
-		 * @param {CookieData} cookieData
+		 * @param {Context} ctx
 		 * @return {ServiceRenderResponse}
 		 */
 		redirect(
+			ctx,
 			location,
 			httpCode = 301,
 			redirectType = 'meta',
-			headers = {},
-			cookieData = null
 		) {
-
 			let result = '';
 			if (redirectType === REDIRECT_TYPES.REDIRECT_TYPE_META) {
-				headers['location'] = location;
+				ctx.meta.headers['location'] = location;
 				result = redirectMetaTemplate(location);
 			} else if (redirectType === REDIRECT_TYPES.REDIRECT_TYPE_JS) {
 				result = redirectJsTemplate(location);
 			} else if (redirectType === REDIRECT_TYPES.REDIRECT_TYPE_HEADER) {
-				headers['location'] = location;
+				ctx.meta.headers['location'] = location;
 			}
+
 			return createResponse({
 				type: 'redirect',
 				result,
 				httpCode,
 				format: 'html',
-				headers,
-				cookieData
+				ctx
 			})
 		},
 
 		/**
 		 * Final response as JSON
-		 * @param {JSONObject} obj
+		 * @param {JSONObject|{[name: string|number]: any}} obj
 		 * @param {number} httpCode
-		 * @param {{}} headers
-		 * @param {CookieData} cookieData
+		 * @param {Context} ctx
 		 * @return {ServiceRenderResponse}
 		 */
-		asJson(obj, httpCode = 200, headers = {}, cookieData = null) {
+		asJson(ctx, obj, httpCode = 200) {
 			return this.renderRaw(
 				{
 					view: JSON.stringify(obj),
 					httpCode,
 					format: 'json',
-					headers,
-					cookieData
+					ctx
 				});
 		},
 	}

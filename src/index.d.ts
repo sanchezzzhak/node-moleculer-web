@@ -1,5 +1,5 @@
 import {TemplatedApp, HttpRequest, HttpResponse} from "uWebSockets.js";
-import {ServiceBroker} from "moleculer";
+import {ServiceBroker, Context} from "moleculer";
 import JWT from "./utils/jwt";
 
 export type JSONValue =
@@ -115,11 +115,8 @@ export class RequestData  {
     queryRaw: string;
     url: string;
     userAgent: string;
-
     setData(params: {}): void;
-
     getData(): any;
-
     constructor(
         req: HttpRequest | null,
         res: HttpResponse | null,
@@ -155,25 +152,7 @@ export class CookieData {
 export interface ServiceRenderResponse {
     type: "render" | "redirect";
     result: string;
-    format: string;
-    statusCode: number;
-    statusCodeText: number | string;
-    headers: { [key: string]: string };
-    cookies: string;
-    request: {
-        headers: {
-            [name: string]: string;
-        };
-        host: string;
-        ip: string;
-        ipProxy: string;
-        query: {
-            [name: string]: any;
-        };
-        queryRaw: string;
-        url: string;
-        userAgent: string;
-    }
+    format?: string;
 }
 
 export interface AbstractControllerOptions {

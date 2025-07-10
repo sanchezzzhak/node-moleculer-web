@@ -12,10 +12,15 @@ class Rest1Service extends Service {
 			actions: {
 				hello: {
 					rest: 'GET /hello',
+					/**
+					 *
+					 * @param {Context} ctx
+					 * @return {string}
+					 */
 					handler(ctx) {
-						console.log();
-
-						return 'Hello API Gateway!'
+						let value = ctx.meta.cookieData.get('test_cookie', 1);
+						ctx.meta.cookieData.set('test_cookie', parseInt(value)+1);
+						return `Hello REST1`;
 					}
 				},
 			},

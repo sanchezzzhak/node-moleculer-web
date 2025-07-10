@@ -298,7 +298,6 @@ const UwsServer = {
 
 		/**
 		 * run action in service
-		 *
 		 * @param {string} service
 		 * @param {HttpResponse} res
 		 * @param {HttpRequest} req
@@ -306,10 +305,10 @@ const UwsServer = {
 		 * @return [result, headers, cookies, statusCodeText]
 		 */
 		async runServiceAction(service, res, req, route) {
+			let cookieData = new CookieData(req, res);
 			let requestData = new RequestData(req, res, route);
 			let postData = null;
 			let result = null;
-
 			// permission checks for post
 			if (route.method === 'post' && route.permission) {
 				if (route.permission.post) {
@@ -323,30 +322,36 @@ const UwsServer = {
 				// }
 			}
 
-			let headers = {};
-			let cookies = {};
-			let statusCode = null;
-			let statusCodeText = null;
+			const meta = {
+				headers: {},
+				cookieData,
+				requestData
+			}
 
 			/** @type {string|ServiceRenderResponse} response */
 			const response = await this.broker.call(route.service, {
-				cookies: req.getHeader('cookie'),
-				request: requestData.getData(),
 				route: {
 					path: route.path,
 					method: route.method,
 					cache: route.cache
 				},
 				postData: postData
-			});
+			}, {meta});
 
-			// convert response to data
-			if ( typeof response !== 'string') {
+			let headers = meta.headers ?? {};
+			let statusCode = meta.statusCode ?? null;
+			let statusCodeText = meta.statusCodeText ?? null;
+			// map response to data
+			if (response.result !== void 0) {
 				result = response.result;
-				statusCode = response.statusCode;
-				statusCodeText = response.statusCodeText
-				headers = response.headers;
-				cookies = response.cookies;
+			} else {
+				result = response;
+			}
+
+			let cookies = [];
+			for (let key in cookieData.resp) {
+				const value = cookieData.toHeader(key);
+				cookies.push(value)
 			}
 
 			return [result, headers, cookies, statusCodeText];
