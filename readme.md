@@ -1,22 +1,26 @@
-node-moleculer-web
+# node-moleculer-web
+
+[![NPM Version](https://img.shields.io/npm/v/node-moleculer-web )](https://www.npmjs.com/package/node-moleculer-web )
+[![License](https://img.shields.io/npm/l/node-moleculer-web )](https://github.com/sanchezzzhak/node-moleculer-web/blob/master/LICENSE )
+
+High-performance web server integration for [Moleculer](https://moleculer.services ) based on [uWebSockets.js](https://github.com/uNetworking/uWebSockets.js ).
+
+### 📦 Features
+- Built on top of ultra-fast [uWebSockets.js](https://github.com/uNetworking/uWebSockets.js ).
+- Fully compatible with [Moleculer](https://moleculer.services ) services.
+- Support for controllers and middleware.
+- Request and response helpers.
+- Cookie and body parsing.
+- Easy redirect handling.
+- TypeScript support via `index.d.ts`.
+
 ---
-* This is an adapter http-server for the MolecularJs framework
-* Server based on https://github.com/uNetworking/uWebSockets.js
 
 
-### Install
-
-```
-npm install node-moleculer-web --save
-```
-or
-```
-yarn add node-moleculer-web
-```
-or
-```
-npm i github:sanchezzzhak/node-moleculer-web#v1.1.4
-```
+### 🚀 Installation
+```bash
+npm install node-moleculer-web
+````
 
 ### Uses
 1 Create controller in folder controllers/home.js
@@ -48,9 +52,7 @@ class AppService extends Service {
           port: process.evn.SERVER_PORT ?? 3101,
           // on what ip to listen
           ip: process.evn.SERVER_IP ?? '127.0.0.1',
-          // web-service registration strategy type for cluster
-          // node (ports will be assigned +1 from the current one)
-          // auto (ports will be assigned +1 from the current one if the port is free)
+
           portSchema: process.evn.SERVER_SCHEMA ?? 'node',              
           // if statics are not needed, just remove next parameters  
           publicDir: __dirname + '/../public',
@@ -73,7 +75,6 @@ class AppService extends Service {
   createService() {
     // register routing where home is the controller and index is the method	
     this.createRoute('get / #c:home.index')
-    this.bindRoutes();
   }
 }
 module.exports = AppService
@@ -97,17 +98,14 @@ module.exports = AppService
 ### Router Options
 * `cache` - second http cache
 * `onBefore(route, req, res)` - Function before call for controller or service
-* `onAfter(route, req, res)` - Function after call for controller or service
+* `onAfter(route, req, res, data)` - Function after call for controller or service
 
 Example options for createRoute
 ```js
 this.createRoute('get / #c:home.index', {cache: 5});
-this.bindRoutes();
 ```
 
-
-### Controller API
-* properties:
+### AbstractController properties:
 
 | **property**                                                                                                                                  | **description**                              |
 |:----------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------|
@@ -119,6 +117,61 @@ this.bindRoutes();
 | `statusCodeText`  | default response http code string `200 OK`   |
 
 `requestData or cookieData` (The property objects are available after executing the `this.initRequest()` method inside the controller method)
+
+#### 🕒 Performance Tracking
+* `.timer`
+  * An instance of Timer used to measure request processing duration.
+  * `.start()` — Starts the timer.
+  * `.stop()` — Stops the timer. and Returns elapsed time in milliseconds.
+
+
+### AbstractController methods:
+
+#### 🔐 JWT Methods:
+* `.initJWT(key, iat = false)`
+  * Initializes the JWT utility with a secret key and whether to include issued-at time (iat).
+* `.getJWT()`
+  * Returns the initialized JWT instance. Throws an error if not initialized.
+* `.createJwtToken(payload = {})`
+  * Creates a JWT token from the provided payload.
+* `.extractJwtToken(token)`
+  * Extracts and returns the decoded payload from a given JWT token.
+
+#### 📥 Request Handling:
+
+* `.initRequest()`
+  - Initializes requestData and cookieData objects for accessing request data and cookies. Also sets client-hints headers if enabled.
+* `.readBody()`
+  - Reads the request body asynchronously. Returns a Promise.
+
+#### 📤 Response Methods:
+* `.asJson(obj, httpCode = 200)`
+  * Sends a JSON response with optional HTTP status code.
+
+* `.renderRaw({ view, httpCode, format })`
+  * Renders raw content (string or HTML) with proper MIME type and HTTP status.
+
+* `.render({ template, params, httpCode, format })`
+  * Renders an EJS template with given parameters and sends it as a response.
+
+* `.setStatus(httpCode)`
+  * Sets the HTTP status code and its text representation.
+
+* `.writeHeader(key, value)`
+  * Writes a custom header to the response.
+
+* `.setCorsHeaders()`
+  * Sets CORS-related headers for cross-origin requests.
+
+#### 🔁 Redirect Methods:
+* `.redirect(location, httpCode = 301)`
+  * Performs a redirect using one of the following strategies:
+  * You can set the strategy in the `redirectType` property of the controller.
+  * REDIRECT_TYPE_META: Meta refresh redirect (HTML-based).
+  * REDIRECT_TYPE_JS: JavaScript-based redirect.
+  * REDIRECT_TYPE_HEADER: Standard HTTP Location header redirect.
+
+
 
 
 ### Example Controllers
@@ -164,73 +217,105 @@ class Home extends AbstractController {
   }
 }
 ```
-Read or Write Cookie
+### 🍪 Cookie Usage Example — Reading and Writing Cookies
 ```js
-class Home extends AbstractController {
-  async index() {
-    this.initRequest();
-    // read
-    const cookievalue= this.cookieData.get('my_cookievalue', 1*new Date);
-    // write
-    this.cookieData.set('my_cookievalue', cookievalue)
+const { AbstractController } = require('node-moleculer-web');
 
-    return cookievalue;
-  }
-}
-```
-Get request data
-```js
-class Home extends AbstractController {
+module.exports = class Home extends AbstractController {
+  /**
+   * Initialize request data and cookie handler
+   */
   async index() {
+    // Initialize requestData and cookieData
     this.initRequest();
-    const headers = this.requestData.headers;
-    const ip = this.requestData.ip;
-    const query = this.requestData.query ?? {};
-    const referer = this.requestData.referer;
-    const currentUrl = this.requestData.url;
-    const userAgent = this.requestData.userAgent;
+    // 🔍 Read a cookie value, with fallback
+    const cookieValue = this.cookieData.get('my_cookievalue', String(Date.now() /* or 1*new Date()  */   ));
+    // ✍️ Set/update the cookie with a new value
+    this.cookieData.set('my_cookievalue', cookieValue);
+    // 📤 Return current cookie value as response
+    return `Current cookie value: ${cookieValue}`;
+  }
+};
+```
+#### 📥 Get Request Data Example
+```js
+const { AbstractController } = require('node-moleculer-web');
 
-    return this.asJson({headers, ip, query, referer, currentUrl, userAgent}, 200);
-  }
-}
-```
-Call another microservice service in controller
-```js
-class Home extends AbstractController {
+module.exports = class Home extends AbstractController {
+  /**
+   * Handle GET request and return parsed request data
+   */
   async index() {
-   const data = await this.broker.call('service-name.action', {
-      email: 'test'
-   }) ?? {};
-	 
-   return this.asJson(data, 200);
+    // Initialize request and cookie utilities
+    this.initRequest();
+    // Extract request data
+    const headers = this.requestData.headers;       // All request headers
+    const ip = this.requestData.ip;                 // Client IP address
+    const query = this.requestData.query ?? {};     // Query parameters
+    const referer = this.requestData.referer;       // Referrer URL
+    const currentUrl = this.requestData.url;        // Current request URL
+    const userAgent = this.requestData.userAgent;   // User-Agent string
+  
+    // Return all data as JSON response
+    return this.asJson({
+      headers,
+      ip,
+      query,
+      referer,
+      currentUrl,
+      userAgent
+    }, 200);
   }
-}
+};
 ```
-Read post body
+#### 🔄 Call Another Microservice from Controller
 ```js
-class Home extends AbstractController {
-  async index() {
-    const body = await this.readBody();
-    return this.asJson({body}, 200);
-  }
-}
+const { AbstractController } = require('node-moleculer-web');
+
+module.exports = class Home extends AbstractController {
+	/**
+	 * Calls another microservice and returns the result as JSON
+	 */
+	async index() {
+		try {
+			const data = await this.broker.call('service-name.action', {
+				email: 'test@example.com'
+			}) ?? {};
+			return this.asJson(data, 200);
+		} catch (error) {
+			return this.asJson({
+				error: error.message,
+				code: error.code || 500
+			}, error.code || 500);
+		}
+	}
+};
 ```
-Write or read cookies
+#### 📥 Read POST Request Body Example
 ```js
-class Home extends AbstractController {
-  async index() {
-    this.initRequest()
-    // read
-    let cookieValue = this.cookieData.get('server-test-cookie', 0);
-    // write
-    this.cookieData.set('server-test-cookie', parseInt(cookieValue)+1, {
-    	expires: new Date() + 36000
-    })
-    return this.asJson({status: 'ok', cookieValue}, 200);
-  }
-}
+const { AbstractController } = require('node-moleculer-web');
+
+module.exports = class Home extends AbstractController {
+	/**
+	 * Reads the request body and returns it as JSON
+	 */
+	async index() {
+		try {
+			const body = await this.readBody();
+			return this.asJson({ body }, 200);
+
+		} catch (error) {
+			return this.asJson({
+				error: 'Failed to read request body',
+				message: error.message
+			}, 400);
+		}
+	}
+};
 ```
-JWT
+
+#### 🔐 JWT Usage Example — Create and Verify Tokens
+
 ```js
 class Home extends AbstractController {
   // create token
@@ -250,6 +335,64 @@ class Home extends AbstractController {
   }
 }
 ```
+
+Extend rest service
+```js
+const {HttpMixin} = require('node-moleculer-web');
+const {Service} = require('moleculer');
+class RestService extends Service {
+	constructor(broker) {
+		super(broker);
+		this.parseServiceSchema({
+			name: 'rest',
+			settings: {},
+			mixins: [
+				HttpMixin
+			],
+			actions: {
+				hello: {
+					rest: 'GET /hello',
+					handler(ctx) {
+						return 'Hello1 API Gateway!'
+					}
+				},
+				hello2: {
+					rest: 'GET /hello2/:test1/:test2',
+					handler(ctx) {
+						// read request data for meta object
+						console.log('requestData', ctx.meta.requestData)
+            // read cookie
+						ctx.meta.cookieData.get('test', 0);
+						// write cookie 
+						ctx.meta.cookieData.set('test', 2);
+						// write header
+						ctx.meta.headers['my-custom-header'] = 'lama';
+						return 'Hello2 API Gateway!'
+					}
+				},
+        
+				testJson: {
+					rest: 'GET /hello3/test/json',
+					handler(ctx) {
+						return this.asJson(ctx, {
+							myvalue: 111
+            })
+          }
+        },
+        
+        testRedirect: {
+					rest: 'GET /hello3/test/redirect',
+					handler(ctx) {
+						return this.redirect(ctx, 'https://google.com', 301, 'meta')
+					}
+        }
+				
+			},
+		});
+	}
+}
+```
+
 
 ### NGINX config if request proxying is used for once instance
 ```ngnix
