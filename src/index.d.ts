@@ -204,7 +204,7 @@ export class AbstractController {
 
     setStatus(httpCode: number): void;
 
-    redirect(location: string, httpCode: number): string;
+    redirect(location: string, httpCode: number, redirectType: RedirectType|string|null): string;
 }
 
 export interface HttpMixin {

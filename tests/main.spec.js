@@ -1,15 +1,7 @@
-
-
 const {assert} = require('chai');
 const {resolve} = require('node:path');
 const {ServiceBroker, Service} = require('moleculer');
-const path = require("node:path");
-const {UwsServer, AbstractController} = require("../src");
 const axios = require("axios");
-
-
-const PORT = 8080;
-const IP = 'localhost';
 
 function delay(ms) {
 	return new Promise((resolve, reject) => {
@@ -17,19 +9,13 @@ function delay(ms) {
 	});
 }
 
-
 /**
- *
  * @param {"arraybuffer" | "blob" | "document" | "json" | "text" | "stream" | "formdata"} responseType
  * @return {AxiosInstance}
  */
 const instanceAxios = (responseType = "text") => {
 	return axios.create({baseURL: 'http://127.0.0.1:8080/', responseType, timeout: 500000});
 }
-
-
-
-
 
 let SERVICES = ['app-test'];
 let broker;
@@ -63,19 +49,45 @@ describe('tests', function () {
 		const response = await instance.get(`test`);
 		assert.equal('index test content', response.data)
 	})
-	it('test rest1 service', async () => {
 
-		// test first request and get cookie
+	it('test rest1 service check get cookie', async () => {
 		const instance = instanceAxios('text');
 		let response = await instance.get(`hello`);
 		assert.equal(response.headers['set-cookie'][0], 'test_cookie=2; Path=/')
 		assert.equal('Hello REST1', response.data)
+	})
 
-		// test second write and update cookie
-		response = await instance.get(`hello`, {
+	it('test rest1 service set cookie', async () => {
+		const instance = instanceAxios('text');
+		let response = await instance.get(`hello`, {
 			headers: {'Cookie': 'test_cookie=2; user_pref=dark_mode'}
 		});
 		assert.equal(response.headers['set-cookie'][0], 'test_cookie=3; Path=/')
 		assert.equal('Hello REST1', response.data)
 	})
+
+	it('test unknown request', async () => {
+		const instance = instanceAxios('text');
+		const response = await instance.get(`unknown-request`, {
+			validateStatus: (status => status > 0)
+		});
+		assert.equal(response.status, 404)
+		assert.equal(response.statusText, 'Not Found');
+	})
+
+	it('test get static file', async() => {
+		const instance = instanceAxios('text');
+		const response = await instance.get('/static-document.html');
+		assert.isTrue(response.data.indexOf('<title>Title Hello</title>') !== -1)
+	})
+
+	it('test meta redirect controller', async () => {
+		const instance = instanceAxios('text');
+		const response = await instance.get('/test/meta-redirect');
+		const isExist = response.data.indexOf(
+			'<meta http-equiv="refresh" content="0; url=http://localhost:8080/test">'
+		) !== -1;
+		assert.isTrue(isExist)
+	})
+
 })

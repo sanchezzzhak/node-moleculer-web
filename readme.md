@@ -341,55 +341,55 @@ Extend rest service
 const {HttpMixin} = require('node-moleculer-web');
 const {Service} = require('moleculer');
 class RestService extends Service {
-	constructor(broker) {
-		super(broker);
-		this.parseServiceSchema({
-			name: 'rest',
-			settings: {},
-			mixins: [
-				HttpMixin
-			],
-			actions: {
-				hello: {
-					rest: 'GET /hello',
-					handler(ctx) {
-						return 'Hello1 API Gateway!'
-					}
-				},
-				hello2: {
-					rest: 'GET /hello2/:test1/:test2',
-					handler(ctx) {
-						// read request data for meta object
-						console.log('requestData', ctx.meta.requestData)
+  constructor(broker) {
+    super(broker);
+    this.parseServiceSchema({
+      name: 'rest',
+      settings: {},
+      mixins: [
+        HttpMixin
+      ],
+      actions: {
+        hello: {
+          rest: 'GET /hello',
+          handler(ctx) {
+            return 'Hello1 API Gateway!'
+          }
+        },
+        hello2: {
+          rest: 'GET /hello2/:test1/:test2',
+          handler(ctx) {
+            // read request data for meta object
+            console.log('requestData', ctx.meta.requestData)
             // read cookie
-						ctx.meta.cookieData.get('test', 0);
-						// write cookie 
-						ctx.meta.cookieData.set('test', 2);
-						// write header
-						ctx.meta.headers['my-custom-header'] = 'lama';
-						return 'Hello2 API Gateway!'
-					}
-				},
+            ctx.meta.cookieData.get('test', 0);
+            // write cookie 
+            ctx.meta.cookieData.set('test', 2);
+            // write header
+            ctx.meta.headers['my-custom-header'] = 'lama';
+            return 'Hello2 API Gateway!'
+          }
+        },
         
-				testJson: {
-					rest: 'GET /hello3/test/json',
-					handler(ctx) {
-						return this.asJson(ctx, {
-							myvalue: 111
+        testJson: {
+          rest: 'GET /hello3/test/json',
+          handler(ctx) {
+            return this.asJson(ctx, {
+              myvalue: 111
             })
           }
         },
         
         testRedirect: {
-					rest: 'GET /hello3/test/redirect',
-					handler(ctx) {
-						return this.redirect(ctx, 'https://google.com', 301, 'meta')
-					}
+          rest: 'GET /hello3/test/redirect',
+          handler(ctx) {
+            return this.redirect(ctx, 'https://google.com', 301, 'meta')
+          }
         }
-				
-			},
-		});
-	}
+        
+      },
+    });
+  }
 }
 ```
 

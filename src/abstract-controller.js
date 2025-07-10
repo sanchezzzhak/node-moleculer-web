@@ -220,17 +220,21 @@ class AbstractController {
 	 * Redirect
 	 * @param {string} location
 	 * @param {number} httpCode
+	 * @param {RedirectType|string|null} redirectType
 	 */
-	redirect(location, httpCode = 301) {
-		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_META) {
+	redirect(location, httpCode = 301, redirectType = null) {
+		const type = redirectType === null ? '' +this.redirectType :  redirectType;
+		if (type === REDIRECT_TYPES.REDIRECT_TYPE_META) {
 			this.setStatus(httpCode);
 			this.writeHeader('location', location);
 			return redirectMetaTemplate(location);
 		}
-		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_JS) {
+
+		if (type === REDIRECT_TYPES.REDIRECT_TYPE_JS) {
 			return redirectJsTemplate(location);
 		}
-		if (this.redirectType === REDIRECT_TYPES.REDIRECT_TYPE_HEADER) {
+
+		if (type === REDIRECT_TYPES.REDIRECT_TYPE_HEADER) {
 			this.setStatus(httpCode);
 			this.writeHeader('location', location);
 		}

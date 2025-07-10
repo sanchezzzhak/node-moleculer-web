@@ -3,19 +3,23 @@ const path = require("node:path");
 const {UwsServer, AbstractController} = require("../../src");
 
 class PingController extends AbstractController {
+
 	async actionIndex() {
-		this.initRequest()
 		return 'ok pong';
 	}
+
 }
 
 class TestController extends AbstractController {
 
-	async index() {
+	async actionIndex() {
 		return 'index test content';
 	}
-}
 
+	async actionMetaRedirect() {
+		return this.redirect('http://localhost:8080/test', 301);
+	}
+}
 
 class AppService extends Service {
 	constructor(broker) {
@@ -42,7 +46,9 @@ class AppService extends Service {
 			test: TestController,
 			ping: PingController
 		};
-		this.createRoute('get /test #c:test.index');
+		this.createRoute('get /test #c:test.actionIndex');
+		this.createRoute('get /test/unknown #c:test.actionUnknown');
+		this.createRoute('get /test/meta-redirect #c:test.actionMetaRedirect');
 		this.createRoute('get /ping #c:ping.actionIndex');
 	}
 }
