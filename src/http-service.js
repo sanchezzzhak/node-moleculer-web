@@ -5,11 +5,11 @@ const REDIRECT_TYPES = require("./redirect-types");
 const CookieData= require("./cookie-data");
 const RequestData= require("./request-data");
 const {getStatusCodeText} = require("./utils/http-status");
+const JWT = require("./utils/jwt");
 
 /**
  * @typedef {import("moleculer").Context} Context
  */
-
 
 /**
  * @param {Context} ctx
@@ -26,24 +26,91 @@ const createResponse = ({
 	httpCode = 200,
 	format = 'html'
 }) => {
-	ctx.meta.headers['content-type']  = getMime('.' + format)
-	ctx.meta.statusCode = httpCode
-	ctx.meta.statusCodeText = getStatusCodeText(httpCode)
-
+	ctx.meta.headers['content-type']  = getMime('.' + format);
+	ctx.meta.statusCode = httpCode;
+	ctx.meta.statusCodeText = getStatusCodeText(httpCode);
 	return {
 		type,
 		result,
+		format
 	};
 }
 
-
-
+/**
+ * HttpServiceMixin
+ **/
 const HttpService = {
-
 	settings: {
 		uwsHttp: true
 	},
+
+	/*
+
+	hooks: {
+		before: {
+			"*": [
+				(ctx) => {
+				  if (ctx.meta.headers === void 0) {
+						ctx.meta.headers = {};
+					}
+					if (this.settings.clientHints) {
+						ctx.meta.headers['accept-ch'] = [
+							'sec-ch-ua-full-version',
+							'sec-ch-ua-full-version-list',
+							'sec-ch-ua-platform',
+							'sec-ch-ua-platform-version',
+							'sec-ch-ua-arch',
+							'sec-ch-ua-bitness',
+							'sec-ch-prefers-color-scheme',
+						].join(', ');
+					}
+				}
+			],
+		}
+	},
+
+	*/
+
 	methods: {
+
+		/**
+		 * Init JWT component to property
+		 * @param {string} key
+		 * @param {boolean} iat
+		 */
+		initJWT(key, iat = false) {
+			this.jwt = new JWT({key, iat});
+		},
+
+		/**
+		 * Create JWT token for payload data
+		 * @param {{}} payload
+		 * @return {string}
+		 */
+		createJwtToken(payload = {}) {
+			return this.getJWT().create(payload);
+		},
+
+		/**
+		 * Extract jwt token to payload data
+		 * @param token
+		 * @return {*}
+		 */
+		extractJwtToken(token) {
+			return this.getJWT().extract(token);
+		},
+
+		/**
+		 * Get JWT component
+		 * @return {JWT}
+		 */
+		getJWT() {
+			if (!this.jwt) {
+				throw new Error('To use this method you need to call the initJWT(key, iat) method') ;
+			}
+			return this.jwt;
+		},
+
 		/**
 		 * Render as text
 		 * @param {Context} ctx

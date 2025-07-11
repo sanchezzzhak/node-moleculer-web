@@ -34,8 +34,22 @@ const decodeRouterParam = (val) => {
 
 const PORT_SCHEMA_AUTO = 'auto';
 const PORT_SCHEMA_NODE = 'node';
+const PORT_SCHEMA_LIST = 'list';
+
 const ROUTER_TYPE_CONTROLLER = 'c';
 const ROUTER_TYPE_SERVICE = 's';
+
+const usedPorts = new Set();
+
+const getFreePort = (ports) => {
+	for (let port of ports) {
+		if (!usedPorts.has(port)) {
+			usedPorts.add(port);
+			return port;
+		}
+	}
+	return null;
+}
 
 const UwsServer = {
 	server: null,
@@ -87,11 +101,18 @@ const UwsServer = {
 	async started() {
 		const nodeRe = /(\d+)$/i.exec(this.broker.nodeID);
 		const nodeId = nodeRe !== null ? Number(nodeRe[0]) : 0;
-
+		// auto ser port for next open port.
 		if (this.settings.portSchema === PORT_SCHEMA_AUTO) {
 			this.settings.port = await getNextOpenPort(Number(this.settings.port));
 		}
-
+		// set port for array this.settings.ports
+		if (this.settings.portSchema === PORT_SCHEMA_LIST) {
+			if (this.settings.ports === void 0) {
+				throw new Error('property <Array:number>ports not declaration')
+			}
+			this.settings.port = await getFreePort(Number(this.settings.ports));
+		}
+		// set port for instance cluster
 		if (this.settings.portSchema === PORT_SCHEMA_NODE) {
 			let port = Number(this.settings.port);
 			if ([0, 1].includes(nodeId) === false) {
@@ -104,11 +125,12 @@ const UwsServer = {
 
 		const messages = [
 			`Server select: ip ${this.settings.ip} port ${this.settings.port}`,
-			`port strategy select: ${this.settings.portSchema}`,
+			`port strategy: ${this.settings.portSchema}`,
 			`server-id: ${nodeId}`
 		];
 
 		this.broker.logger.info(messages.join(', '))
+
 		await this.listenServer();
 	},
 

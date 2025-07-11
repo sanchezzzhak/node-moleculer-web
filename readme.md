@@ -51,7 +51,7 @@ class AppService extends Service {
           port: process.evn.SERVER_PORT ?? 3101,
           // on what ip to listen
           ip: process.evn.SERVER_IP ?? '127.0.0.1',
-          portSchema: process.evn.SERVER_SCHEMA ?? 'node',              
+          portSchema: process.evn.SERVER_SCHEMA ?? 'node',         
           // if statics are not needed, just remove next parameters  
           publicDir: __dirname + '/../public',
           publicIndex: 'index.html', // or false
@@ -331,9 +331,10 @@ class Home extends AbstractController {
 }
 ```
 
-Extend rest service
+#### Extend rest service 
+* ! you still need to create an app server to use this example:
 ```js
-const {HttpMixin} = require('node-moleculer-web');
+const {HttpService} = require('node-moleculer-web');
 const {Service} = require('moleculer');
 class RestService extends Service {
   constructor(broker) {
@@ -342,7 +343,7 @@ class RestService extends Service {
       name: 'rest',
       settings: {},
       mixins: [
-        HttpMixin
+				HttpService  // add HttpService mixin
       ],
       actions: {
         hello: {
@@ -388,7 +389,6 @@ class RestService extends Service {
 }
 ```
 
-
 ### NGINX config if request proxying is used for once instance
 ```ngnix
 server {
@@ -420,7 +420,8 @@ or
 ```bash
 node node_modules/.bin/moleculer-runner -i 4 services
 ```
-The config itself
+* The config itself
+* The ports must match from your chosen strategy. `node` or ( `list` added version 1.2.1)
 ```ngnix
 upstream node_apps {
   server 127.0.0.1:3001;
