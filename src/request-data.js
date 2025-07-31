@@ -6,7 +6,6 @@ const {regexExecAll, convertIpv6toIpv4, isValidIpv6, getFullIpv6} = require("./u
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
 
 class RequestData {
-
 	headers = {};
 	host = '';
 	ip = '';
@@ -16,6 +15,7 @@ class RequestData {
 	url = '';
 	userAgent = '';
 	parameters = {};
+	slashes = [];
 
 	/**
 	 * @param {HttpRequest|null} req
@@ -46,7 +46,8 @@ class RequestData {
 		this.referer = req.getHeader('referer') ?? '';
 		this.url = req.getUrl();
 		this.userAgent = req.getHeader('user-agent') ?? '';
-		this.parameters = this.#parseRouteParametersFromRequest(route.path, req)
+		this.parameters = route.params;
+		this.slashes = route.slashes;
     // for proxy nginx
 		if (this.ip === '127.0.0.1' && this.headers['x-nginx-proxy'] && this.headers['x-real-ip']) {
 			this.ip = this.headers['x-real-ip'];
@@ -55,22 +56,6 @@ class RequestData {
 		if (isValidIpv6(this.ip)) {
 			this.ip = getFullIpv6(this.ip);
 		}
-	}
-
-	/**
-	 * @param {string} url
-	 * @param {HttpRequest} req
-	 * @return {{}}
-	 */
-	#parseRouteParametersFromRequest(url, req) {
-		const params = {};
-		if (url.includes(':')) {
-			const matches = regexExecAll(url, /(:\w+)/ig);
-			for (let i = 0; i < matches.length; i++) {
-				params[matches[i][0].substring(1)] = req.getParameter(i);
-			}
-		}
-		return params;
 	}
 
 	setData(params = {}) {
@@ -84,6 +69,7 @@ class RequestData {
 		this.url = params.referer;
 		this.userAgent = params.userAgent;
 		this.parameters = params.parameters;
+		this.slashes = params.slashes;
 	}
 
 	getData() {
@@ -98,6 +84,7 @@ class RequestData {
 			url: this.referer,
 			userAgent: this.userAgent,
 			parameters: this.parameters,
+			slashes: this.slashes,
 		}
 	}
 

@@ -51,8 +51,14 @@ export interface RouteOptionsBase {
         files?: boolean,
         multipart?: RouteMultipartLimitOptions
     }
+    regex?: RegExp;
+    keys: Array<string>;
     service?: string;
     rateLimit?: RouteRateLimitOptions,
+    params?: {
+        [name: string]: any;
+    }
+    slashes?: Array<any>
 }
 
 export interface RouteOptions extends RouteOptionsBase{
@@ -80,7 +86,9 @@ export interface UwsServerSettings {
     staticLastModified: boolean,
     staticCompress: boolean;
     portSchema: null | PortSchemaOption;
-    routes: Array<RouteOptions>;
+    routes: {
+        [name: string]: Array<RouteOptions>
+    };
     controllers: {
         [name: string]: typeof AbstractController;
     },

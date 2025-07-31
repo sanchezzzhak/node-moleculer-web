@@ -44,11 +44,19 @@ describe('tests', function () {
 		await delay(1000);
 	});
 
-	it('test index controller', async () => {
+	it('test actionIndex controller', async () => {
 		const instance = instanceAxios('text');
 		const response = await instance.get(`test`);
 		assert.equal('index test content', response.data)
 	})
+
+	it('test actionHash controller', async () => {
+		const instance = instanceAxios('json');
+		const response = await instance.get(`a-test/sss`);
+		assert.equal('test', response.data.parameters.hash)
+		assert.equal('sss', response.data.parameters.subid)
+	})
+
 
 	it('test rest1 service check get cookie', async () => {
 		const instance = instanceAxios('text');

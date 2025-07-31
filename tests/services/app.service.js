@@ -16,6 +16,12 @@ class TestController extends AbstractController {
 		return 'index test content';
 	}
 
+	async actionHash() {
+		this.initRequest()
+		const data = this.requestData.getData();
+		return this.asJson(data, 200);
+	}
+
 	async actionMetaRedirect() {
 		return this.redirect('http://localhost:8080/test', 301);
 	}
@@ -25,8 +31,6 @@ class TestController extends AbstractController {
 		const data = this.requestData.getData();
 		return this.asJson({data}, 200);
 	}
-
-
 }
 
 class AppService extends Service {
@@ -54,6 +58,7 @@ class AppService extends Service {
 			test: TestController,
 			ping: PingController
 		};
+		this.createRoute('get /a-:hash/:subid/? #c:test.actionHash');
 		this.createRoute('get /test #c:test.actionIndex');
 		this.createRoute('get /test/unknown #c:test.actionUnknown');
 		this.createRoute('get /test/meta-redirect #c:test.actionMetaRedirect');

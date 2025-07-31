@@ -11,6 +11,33 @@ const RequestData= require("./request-data");
 const {readBody} = require("./read-body");
 const CookieData = require("./cookie-data");
 
+const REGEX_RULE = /^(get|post|any|options|head|put|connect|trace|patch|del) (.*) #([sc]):([a-z][\w-]+)\.([a-z][\w-]+)$/i;
+
+const pathToRegExp = function (path, keys) {
+	path = path
+		.concat('/?')
+		.replace(/\/\(/g, '(?:/')
+		.replace(/(\/)?(\.)?:(\w+)(?:(\(.*?\)))?(\?)?|\*/g, function(_, slash, format, key, capture, optional){
+			if (_ === "*"){
+				keys.push(void 0);
+				return _;
+			}
+
+			keys.push(key);
+			slash = slash || '';
+			return ''
+				+ (optional ? '' : slash)
+				+ '(?:'
+				+ (optional ? slash : '')
+				+ (format || '') + (capture || '([^/]+?)') + ')'
+				+ (optional || '');
+		})
+		.replace(/([\/.])/g, '\\$1')
+		.replace(/\*/g, '(.*)');
+
+	return new RegExp('^' + path + '$', 'i');
+}
+
 /**
  * Decode param value.
  * @param val {String}
@@ -52,6 +79,7 @@ const getFreePort = (ports) => {
 }
 
 const UwsServer = {
+
 	server: null,
 	name: 'web-server',
 	events: {
@@ -59,6 +87,7 @@ const UwsServer = {
 			this.bindRoutes();
 		}
 	},
+
 	settings: {
 		port: 3000,
 		ssl: {},
@@ -68,8 +97,8 @@ const UwsServer = {
 		staticCompress: true,
 		staticLastModified: true,
 		portSchema: 'node',
-		routes: [],
 		controllers: {},
+		routes: {},
 		createRouteValidate: false
 	},
 
@@ -147,9 +176,7 @@ const UwsServer = {
 		 * @param {CreateRouteOption} options
 		 */
 		createRoute(route, options = {} ) {
-			const regex = /^(get|post|any|options|head|put|connect|trace|patch|del) (.*) #([sc]):([a-z][\w-]+)\.([a-z][\w-]+)$/i;
-
-			const match = regex.exec(route);
+			const match = REGEX_RULE.exec(route);
 			if (match) {
 				const method = match[1].toLowerCase();   // http type
 				const path = match[2] ?? '';             // url path
@@ -157,23 +184,28 @@ const UwsServer = {
 				const controller = match[4] ?? '';       // name controller or service
 				const action = match[5] ?? '';           // name action
 				const cache = options.cache ?? -1;     // cache option
-				const onBefore = options.onBefore ?? null;
-				const onAfter = options.onAfter ?? null;
+				const onBefore = options.onBefore ?? null;  // callback before run service/controller
+				const onAfter = options.onAfter ?? null; // callback after run service/controller
+				const keys = [];                          // params keys names for path
+				const regex = pathToRegExp(path, keys)  // create regex for match
 
 				switch (type) {
 					case ROUTER_TYPE_CONTROLLER:
-						this.addRoute({path, method, controller, action, cache, onBefore, onAfter});
+						this.addRoute({
+							path, keys, regex, method, controller, action, cache, onBefore, onAfter
+						});
 						break;
 					case ROUTER_TYPE_SERVICE:
-						this.addRoute({path, method, service: [controller, action].join('.'), cache, onBefore, onAfter});
+						this.addRoute({
+							path, keys, regex, method, service: [controller, action].join('.'), cache, onBefore, onAfter
+						});
 						break;
 				}
 			}
 
 			if (this.settings.createRouteValidate && !match) {
-				throw new Error(`route "${route}" does not match the template ``"${regex.toString()}"`)
+				throw new Error(`route "${route}" does not match the template ``"${REGEX_RULE.toString()}"`)
 			}
-
 		},
 
 		/**
@@ -181,7 +213,11 @@ const UwsServer = {
 		 * @param {RouteOptions|{}} route
 		 */
 		addRoute(route) {
-			this.settings.routes.push(route);
+			const {method} = route;
+			if (!this.settings.routes[method]) {
+				this.settings.routes[method] = [];
+			}
+			this.settings.routes[method].push(route);
 		},
 
 		/**
@@ -205,108 +241,142 @@ const UwsServer = {
 			}
 		},
 
-		bindRouteSettings() {
-
-			this.settings.routes.forEach((route) => {
-				this.getServerUws()[route.method](route.path,
-					/**
-					 * @param {HttpResponse} res
-					 * @param {HttpRequest} req
-					 * @return {Promise<void>}
-					 */
-					async (res, req) => {
-						res.onAborted && res.onAborted(() => {
-							res.aborted = true;
-						});
-
-						let controller = null,
-							result = null,
-							cookies = [],
-							statusCode = null,
-							statusCodeText = null,
-							headers = null;
-
-						// run before promise
-						if (route.onBefore) {
-							await this.Promise.method(route.onBefore, {route, res, req})
-						}
-
-						if (route.controller) {
-							[controller, result, headers, cookies, statusCodeText]
-								= await this.runControllerAction(route.controller, route.action, res, req, route)
-						} else {
-							[result, headers, cookies, statusCodeText]
-								= await this.runServiceAction(route.service, res, req, route);
-						}
-
-						// run after promise
-						if (route.onAfter) {
-							result = await this.Promise.method(route.onAfter, {route, res, req, data: result})
-						}
-
-						// append cork
-						if (!res.aborted) {
-							res.cork(() => {
-								// write headers response
-								if (headers !== null) {
-									for (let key in headers) {
-										res.writeHeader(key, headers[key]);
-									}
-								}
-								// write cookie response
-								if (cookies) {
-									for (let key in cookies) {
-										res.writeHeader('set-cookie', cookies[key]);
-									}
-								}
-
-								// write status response
-								if (statusCodeText !== null) {
-									res.writeStatus(statusCodeText);
-								}
-
-								res.end(result);
-							});
-						}
-					});
-			});
-		},
-
-
 		/**
-		 * Bind routes static files response
+		 * @param {string} method
+		 * @param {string} url
+		 * @return {Promise<(RouteOptions|{[name:string]}|Array<string>|*[])[]>}
 		 */
-		bindRoutesStatic() {
-			const rootDir = this.settings.publicDir;
-			const indexFile = this.settings.publicIndex
-				? fsPath.join(rootDir, this.settings.publicIndex)
-				: false;
+		async findRouteWithUrl(method, url) {
+			const routes = this.settings.routes[method] ?? this.settings.routes['any'] ?? [];
+			for(const route of routes) {
+				const captures = url.match(route.regex);
+				if (captures) {
+					const
+						keys = route.keys,
+						splats = [],
+						params = {};
 
-			if (rootDir) {
-				this.getServerUws().get('/*',  (res, req) => {
-					const options = {
-						publicIndex: this.settings.publicIndex,
-						compress: this.settings.staticCompress,
-						lastModified: this.settings.staticLastModified,
-					};
-					const path = req.getUrl();
-					if (path === '/' && indexFile) {
-						options.path = indexFile
-					} else {
-						options.path = fsPath.join(rootDir, path)
+					for (let j = 1, len = captures.length; j < len; ++j) {
+						const key = keys[j-1],
+							val = typeof captures[j] === 'string'
+								? decodeURIComponent(captures[j])
+								: captures[j];
+
+						if (key) {
+							params[key] = val;
+						} else {
+							splats.push(val);
+						}
+
 					}
-					return uwsSendFile(res, req, options)
-				});
+					return [route, params, splats];
+				}
 			}
+
+			return [null];
 		},
 
 		/**
 		 * Bind native uws routers
 		 */
 		bindRoutes() {
-			this.bindRoutesThroughAllService();       // bind routes by services rest actions
-			this.bindRouteSettings();                 // bind routes by config
-			this.bindRoutesStatic();             			// bind routes by static files
+			this.bindRoutesThroughAllService();
+			const rootDir = this.settings.publicDir;
+			const indexFile = this.settings.publicIndex
+				? fsPath.join(rootDir, this.settings.publicIndex)
+				: false;
+
+
+			this.getServerUws().any('/*',
+			/**
+			 * @param {HttpResponse} res
+			 * @param {HttpRequest} req
+			 * @return {Promise<void>}
+			 */
+			async (res, req) => {
+				res.onAborted && res.onAborted(() => {
+					res.aborted = true;
+				});
+
+				const method = req.getMethod();
+				const url = req.getUrl();
+				const [route, params, splats] = await this.findRouteWithUrl(method, url);
+
+				// send static files
+				if (rootDir && route === null && ['get'].includes(method)) {
+					const options = {
+						publicIndex: this.settings.publicIndex,
+						compress: this.settings.staticCompress,
+						lastModified: this.settings.staticLastModified,
+					};
+					if (url === '/' && indexFile) {
+						options.path = indexFile
+					} else {
+						options.path = fsPath.join(rootDir, url)
+					}
+					return uwsSendFile(res, req, options)
+				}
+
+				if (route === null) {
+					res.writeStatus('404 Not Found');
+					res.end('Cannot GET ' + url)
+					return;
+				}
+
+				req.getParameter = function (key) {
+					return params[key] ?? params[route.keys[key]] ?? null
+				};
+
+				let controller = null,
+					result = null,
+					cookies = [],
+					statusCode = null,
+					statusCodeText = null,
+					headers = null;
+
+				// run before promise
+				if (route.onBefore) {
+					await this.Promise.method(route.onBefore, {route, res, req, params, splats})
+				}
+
+				if (route.controller) {
+					[controller, result, headers, cookies, statusCodeText]
+						= await this.runControllerAction(route.controller, route.action, res, req, route, params, splats)
+				} else {
+					[result, headers, cookies, statusCodeText]
+						= await this.runServiceAction(route.service, res, req, route, params, splats);
+				}
+
+				// run after promise
+				if (route.onAfter) {
+					result = await this.Promise.method(route.onAfter, {route, res, req, params, splats, data: result})
+				}
+
+				// append cork
+				if (!res.aborted) {
+					res.cork(() => {
+						// write headers response
+						if (headers !== null) {
+							for (let key in headers) {
+								res.writeHeader(key, headers[key]);
+							}
+						}
+						// write cookie response
+						if (cookies) {
+							for (let key in cookies) {
+								res.writeHeader('set-cookie', cookies[key]);
+							}
+						}
+
+						// write status response
+						if (statusCodeText !== null) {
+							res.writeStatus(statusCodeText);
+						}
+						res.end(result);
+					});
+				}
+			});
+
 		},
 
 		/**
@@ -324,11 +394,25 @@ const UwsServer = {
 		 * @param {HttpResponse} res
 		 * @param {HttpRequest} req
 		 * @param {RouteOptions} route
+		 * @param params
+		 * @param slashes
 		 * @return [result, headers, cookies, statusCodeText]
 		 */
-		async runServiceAction(service, res, req, route) {
-			let cookieData = new CookieData(req, res);
-			let requestData = new RequestData(req, res, route);
+		async runServiceAction(service, res, req, route, params, slashes) {
+			const cookieData = new CookieData(req, res);
+			/** @type RouteOptions */
+			const mockRoute = {
+				path: route.path,
+				method: route.method,
+				controller: route.controller,
+				action: route.action,
+				cache: route.cache,
+				keys: route.keys,
+				regex: route.regex,
+				params,
+				slashes
+			};
+			const requestData = new RequestData(req, res, mockRoute);
 			let postData = null;
 			let result = null;
 			// permission checks for post
@@ -349,14 +433,9 @@ const UwsServer = {
 				cookieData,
 				requestData
 			}
-
 			/** @type {string|ServiceRenderResponse} response */
 			const response = await this.broker.call(route.service, {
-				route: {
-					path: route.path,
-					method: route.method,
-					cache: route.cache
-				},
+				route: mockRoute,
 				postData: postData
 			}, {meta});
 
@@ -387,9 +466,19 @@ const UwsServer = {
 		 * @param {HttpResponse} res
 		 * @param {HttpRequest} req
 		 * @param {RouteOptions} route
+		 * @param {*} params
+		 * @param {*} slashes
 		 * @returns [controller, result, headers, cookies, statusCodeText]
 		 */
-		async runControllerAction(controller, action, res, req, route) {
+		async runControllerAction(
+			controller,
+			action,
+			res,
+			req,
+			route,
+			params,
+			slashes
+		) {
 			if (!(this.settings.controllers[controller] ?? false)) {
 				return [null, `controller ${controller} not found`, null, null, null];
 			}
@@ -405,7 +494,11 @@ const UwsServer = {
 					method: route.method,
 					controller: route.controller,
 					action: route.action,
-					cache: route.cache
+					cache: route.cache,
+					keys: route.keys,
+					regex: route.regex,
+					params,
+					slashes
 				},
 			});
 

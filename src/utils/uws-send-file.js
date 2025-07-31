@@ -35,14 +35,9 @@ function writeHeaders(res, headers) {
 async function uwsSendFile(res, req, options = {}) {
   options = Object.assign(defaultOptions, options);
   let path = options.path;
-  if (path === void 0) {
-    res.writeStatus('404 Not Found');
-    res.end();
-    return false;
-  }
-  if (!existsSync(path)) {
-    res.writeStatus('404 Not Found');
-    res.end();
+  if (path === void 0 || !existsSync(path)) {
+    res.writeStatus( '404 Not Found');
+    res.end('Cannot GET ' + req.getUrl());
     return false;
   }
 
@@ -54,7 +49,7 @@ async function uwsSendFile(res, req, options = {}) {
 			path = path + '/' + options.publicIndex
 		} else {
 			res.writeStatus('404 Not Found');
-			res.end();
+			res.end('Cannot GET ' + req.getUrl());
 			return false;
 		}
   }
