@@ -19,7 +19,7 @@ export type JSONArray = Array<JSONValue>;
 type RouteOptionMethod = "get" | "post" | "any" | "options"
     | "head" | "put" | "connect" | "trace" | "patch" | "del";
 
-type PortSchemaOption = "node" | "auto";
+type PortSchemaOption = "node" | "list" | "auto";
 
 export interface RouteMultipartLimitOptions {
     fields: number;
@@ -86,6 +86,7 @@ export interface UwsServerSettings {
     staticLastModified: boolean,
     staticCompress: boolean;
     portSchema: null | PortSchemaOption;
+    ports?: Array<number>;
     routes: {
         [name: string]: Array<RouteOptions>
     };
