@@ -97,6 +97,7 @@ const UwsServer = {
 		staticCompress: true,
 		staticLastModified: true,
 		portSchema: 'node',
+		ports: [],
 		controllers: {},
 		routes: {},
 		createRouteValidate: false
@@ -242,6 +243,7 @@ const UwsServer = {
 		},
 
 		/**
+		 * Find route by method and url
 		 * @param {string} method
 		 * @param {string} url
 		 * @return {Promise<(RouteOptions|{[name:string]}|Array<string>|*[])[]>}
@@ -324,7 +326,7 @@ const UwsServer = {
 				}
 
 				req.getParameter = function (key) {
-					return params[key] ?? params[route.keys[key]] ?? null
+					return params[key] ?? params[route.keys[key] ?? ''] ?? null
 				};
 
 				let controller = null,
