@@ -93,6 +93,21 @@ module.exports = AppService
 * `put` - HTTP PUT
 * `trace` - HTTP TRACE
 
+### Router example
+* optional id param 
+* `<request type> /articles/:id? #c:article.actionIndex`
+* regex id param
+* `<request type> /articles/:id(\d+) #c:article.actionView`
+
+get id param value in controller
+
+```js
+  this.req.getParameter('id') // or  this.req.getParameter('0')
+  // or
+  // this.inidReuqstData();
+  // this.requestData.parameters.id
+```
+
 ### Router Options
 * `cache` - second http cache
 * `onBefore(route, req, res)` - Function before call for controller or service
@@ -103,16 +118,19 @@ Example options for createRoute
 this.createRoute('get / #c:home.index', {cache: 5});
 ```
 
-### AbstractController properties:
+#### 📶 AbstractController properties:
 
-| **property**                                                                                                                                  | **description**                              |
-|:----------------------------------------------------------------------------------------------------------------------------------------------|:---------------------------------------------|
-| `requestData`                                                                                                                                 | read request data                            |
-| `cookieData`                                                                                                                                  | read/write cookie                            |
-| `redirectType`                                                                                                                                | "header" \| "meta" \| "js"  (default meta)   |
-| `format`                                                                                                                                      | default response content type default `html` |
-| `statusCode`                                                                                                                                  | default response http code number `200`      |
-| `statusCodeText`  | default response http code string `200 OK`   |
+| **property**     | **description**                              |
+|:-----------------|:---------------------------------------------|
+| `requestData`    | read request data                            |
+| `cookieData`     | read/write cookie                            |
+| `redirectType`   | "header" \| "meta" \| "js"  (default meta)   |
+| `format`         | default response content type default `html` |
+| `statusCode`     | default response http code number `200`      |
+| `statusCodeText` | default response http code string `200 OK`   |
+| `broker`         | link ServiceBroker molecular.js              |
+| `req`            | link HttpRequest  uWebsocket.js              |
+| `res`            | link HttpResponse uWebsocket.js              | 
 
 `requestData or cookieData` (The property objects are available after executing the `this.initRequest()` method inside the controller method)
 

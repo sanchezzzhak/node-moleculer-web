@@ -31,6 +31,29 @@ class TestController extends AbstractController {
 		const data = this.requestData.getData();
 		return this.asJson({data}, 200);
 	}
+
+	async actionFib() {
+		this.initRequest();
+		const n = this.req.getParameter('n');
+		const output = await this.broker.call('test1.fib', {
+			n
+		})
+		return this.asJson({
+			n,
+			output
+		})
+	}
+
+	async actionRenderType() {
+		this.initRequest()
+		const renderType = this.req.getParameter('renderType');
+		const hash = this.req.getParameter('hash');
+		return this.asJson({
+			hash,
+			renderType
+		})
+	}
+
 }
 
 class AppService extends Service {
@@ -60,6 +83,8 @@ class AppService extends Service {
 		};
 		this.createRoute('get /a-:hash/:subid/? #c:test.actionHash');
 		this.createRoute('get /test #c:test.actionIndex');
+		this.createRoute('get /test/fib/:n #c:test.actionFib');
+		this.createRoute('get /test/:renderType(direct|smart)/:hash #c:test.actionRenderType');
 		this.createRoute('get /test/unknown #c:test.actionUnknown');
 		this.createRoute('get /test/meta-redirect #c:test.actionMetaRedirect');
 		this.createRoute('get /ping #c:ping.actionIndex');

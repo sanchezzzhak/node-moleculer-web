@@ -57,6 +57,32 @@ describe('tests', function () {
 		assert.equal('sss', response.data.parameters.subid)
 	})
 
+	it('test actionRenderType hash regex=renderType', async () => {
+		const instance = instanceAxios('json');
+		let response = await instance.get(`test/direct/hash-test`);
+		assert.equal('hash-test', response.data.hash)
+		assert.equal('direct', response.data.renderType)
+
+		response = await instance.get(`test/smart/hash-test`);
+		assert.equal('hash-test', response.data.hash)
+		assert.equal('smart', response.data.renderType)
+
+		response = await instance.get(`test/aa/hash-test`,{
+			validateStatus: (status => status > 0)
+		});
+		
+		assert.equal(response.status, 404)
+		assert.equal(response.statusText, 'Not Found');
+	});
+
+	it('test actionFib controller + call other service', async () => {
+		const instance = instanceAxios('json');
+		const response = await instance.get(`/test/fib/44`);
+
+		// console.log(response.data)
+		assert.equal(44, response.data.n)
+		assert.equal(701408733, response.data.output)
+	})
 
 	it('test rest1 service check get cookie', async () => {
 		const instance = instanceAxios('text');
