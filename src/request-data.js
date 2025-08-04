@@ -59,17 +59,15 @@ class RequestData {
 	}
 
 	setData(params = {}) {
-		this.host = params.host;
-		this.headers = params.headers;
-		this.ip = params.ip;
-		this.ipProxy = params.ipProxy;
-		this.queryRaw = params.queryRaw;
-		this.query = params.query;
-		this.referer = params.referer;
-		this.url = params.referer;
-		this.userAgent = params.userAgent;
-		this.parameters = params.parameters;
-		this.slashes = params.slashes;
+		[
+			'host', 'headers', 'ip', 'ipProxy', 'queryRaw', 'query',
+			'referer', 'url', 'userAgent', 'parameters', 'slashes'
+
+		].forEach(key => {
+			if (params.hasOwnProperty(key)) {
+				this[key] = params[key];
+			}
+		})
 	}
 
 	getData() {
@@ -81,7 +79,7 @@ class RequestData {
 			queryRaw: this.queryRaw,
 			query: this.query,
 			referer: this.referer,
-			url: this.referer,
+			url: this.url,
 			userAgent: this.userAgent,
 			parameters: this.parameters,
 			slashes: this.slashes,
