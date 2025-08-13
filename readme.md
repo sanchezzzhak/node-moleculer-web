@@ -524,3 +524,9 @@ bzt tests/bzt-config.yaml
 ```
 
 ---
+
+#### Decision to errors related to http response (when proxying):
+* http code `431` set env UWS_HTTP_MAX_HEADERS_SIZE=8192
+* http code `505` for nginx, set the `proxy_pass` value to `proxy_http_version 1.1;`
+* * If you continue to get an error, most likely there are not standard system TCP settings
+* * Perhaps a complete full restart nginx will help
