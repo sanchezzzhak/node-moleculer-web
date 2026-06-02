@@ -41,11 +41,18 @@ class AbstractController {
 	/*** @type {RouteOptionsBase} current route */
 	route
 
+	#checkAbortedFn = () => false;
+
 	constructor(opts = {}) {
 		this.broker = opts.broker;
 		this.req = opts.req;
 		this.res = opts.res;
 		this.route = opts.route
+
+		if (typeof opts.isAborted === 'function') {
+			this.#checkAbortedFn = opts.isAborted;
+		}
+
 		this.timer = new Timer;
 		this.timer.start();
 	}
@@ -162,7 +169,14 @@ class AbstractController {
 	 * @return {any}
 	 */
 	isAborted() {
-		return !!this.res.aborted;
+		if (this.#checkAbortedFn()) {
+			return true;
+		}
+		try {
+			return !!(this.res && this.res.aborted);
+		} catch (e) {
+			return true;
+		}
 	}
 
 	/**
@@ -171,7 +185,19 @@ class AbstractController {
 	 */
 	readBody() {
 		return new Promise((resolve, reject) => {
-			readBody(this.res, resolve, reject);
+			if (this.isAborted()) {
+				return reject(new Error("uWS Request Aborted before reading body"));
+			}
+			try {
+				readBody(this.res, (data) => {
+					if (this.isAborted()) return reject(new Error("uWS Request Aborted during reading body"));
+					resolve(data);
+				}, (err) => {
+					reject(err);
+				});
+			} catch (e) {
+				reject(e);
+			}
 		});
 	}
 

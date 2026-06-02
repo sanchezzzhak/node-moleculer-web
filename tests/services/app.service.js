@@ -44,6 +44,11 @@ class TestController extends AbstractController {
 		})
 	}
 
+	async actionTestPost() {
+		const data = await this.readBody();
+		return this.asJson(JSON.parse(data));
+	}
+
 	async actionRenderType() {
 		this.initRequest()
 		const renderType = this.req.getParameter('renderType');
@@ -89,6 +94,7 @@ class AppService extends Service {
 		this.createRoute('get /test/meta-redirect #c:test.actionMetaRedirect');
 		this.createRoute('get /ping #c:ping.actionIndex');
 		this.createRoute('get /bzt #c:test.actionBzt');
+		this.createRoute('post /test-post #c:test.actionTestPost');
 	}
 }
 

@@ -2,6 +2,7 @@ const {assert} = require('chai');
 const {resolve} = require('node:path');
 const {ServiceBroker, Service} = require('moleculer');
 const axios = require("axios");
+const http = require('node:http');
 
 function delay(ms) {
 	return new Promise((resolve, reject) => {
@@ -123,5 +124,68 @@ describe('tests', function () {
 		) !== -1;
 		assert.isTrue(isExist)
 	})
+
+	it('test client connection abort on long action (should NOT crash the server)', async () => {
+		await new Promise((resolve, reject) => {
+			const req = http.get(
+				'http://localhost:8080/test/fib/516', (res) => {
+			});
+
+			req.on('error', (err) => {});
+			setTimeout(() => {
+				req.destroy();
+				setTimeout(() => {
+					resolve();
+				}, 500);
+
+			}, 5);
+		});
+
+		const instance = instanceAxios('text');
+		const response = await instance.get(`test`);
+		assert.equal('index test content', response.data);
+	});
+
+	it('test success POST request with body', async () => {
+		const instance = instanceAxios('json');
+		const data = {
+			testData: "hello_from_post",
+			imageStatus: "processed"
+		};
+		const response = await instance.post('test-post', data);
+		assert.equal(response.status, 200);
+		assert.equal(response.data, data)
+	});
+
+	it('test client connection abort DURING large POST upload (should NOT crash)', async () => {
+		const http = require('node:http');
+
+		await new Promise((resolve) => {
+			const options = {
+				hostname: '127.0.0.1',
+				port: 8080,
+				path: '/hello-post',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Transfer-Encoding': 'chunked'
+				}
+			};
+
+			const req = http.request(options);
+			req.on('error', () => {});
+			req.write(JSON.stringify({ info: "start_uploading_large_image_data..." }));
+
+			setTimeout(() => {
+				req.destroy();
+				setTimeout(() => resolve(), 500);
+			}, 25);
+		});
+
+		const instance = instanceAxios('text');
+		const response = await instance.get(`test`);
+		assert.equal('index test content', response.data);
+	});
+
 
 })

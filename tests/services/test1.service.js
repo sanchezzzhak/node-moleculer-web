@@ -1,5 +1,10 @@
 const {Service} = require("moleculer");
 
+function delay(ms) {
+	return new Promise((resolve, reject) => {
+		setTimeout(resolve, ms);
+	});
+}
 class Test1Service extends Service {
 	constructor(broker) {
 		super(broker);
@@ -7,6 +12,7 @@ class Test1Service extends Service {
 			name: 'test1',
 			actions: {
 				async fib(ctx) {
+					await delay(2000);
 					const {n} = ctx.params;
 					return this.fibonacciLoop(n);
 				}

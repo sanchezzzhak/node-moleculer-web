@@ -296,13 +296,16 @@ const UwsServer = {
 			 * @return {Promise<void>}
 			 */
 			async (res, req) => {
-				res.onAborted && res.onAborted(() => {
-					res.aborted = true;
+				let isAborted = false;
+				res.onAborted(() => {
+					isAborted = true;
 				});
 
 				const method = req.getMethod();
 				const url = req.getUrl();
 				const [route, params, splats] = await this.findRouteWithUrl(method, url);
+
+				if (isAborted) return;
 
 				// send static files
 				if (rootDir && route === null && ['get'].includes(method)) {
@@ -320,8 +323,14 @@ const UwsServer = {
 				}
 
 				if (route === null) {
-					res.writeStatus('404 Not Found');
-					res.end('Cannot GET ' + url)
+					if (!isAborted) {
+						try {
+							res.writeStatus('404 Not Found');
+							res.end('Cannot GET ' + url);
+						} catch (e) {
+
+						}
+					}
 					return;
 				}
 
@@ -336,49 +345,87 @@ const UwsServer = {
 					statusCodeText = null,
 					headers = null;
 
-				// run before promise
-				if (route.onBefore) {
-					await this.Promise.method(route.onBefore, {route, res, req, params, splats})
-				}
+				try {
+					// run before promise
+					if (route.onBefore) {
+						await this.Promise.method(route.onBefore, {route, res, req, params, splats})
+					}
+					if (isAborted) return;
 
-				if (route.controller) {
-					[controller, result, headers, cookies, statusCodeText]
-						= await this.runControllerAction(route.controller, route.action, res, req, route, params, splats)
-				} else {
-					[result, headers, cookies, statusCodeText]
-						= await this.runServiceAction(route.service, res, req, route, params, splats);
-				}
+					if (route.controller) {
+						[controller, result, headers, cookies, statusCodeText]
+							= await this.runControllerAction(
+								route.controller,
+								route.action,
+								res,
+								req,
+								route,
+								params,
+								splats,
+						 () => isAborted
+					)
+					} else {
+						[result, headers, cookies, statusCodeText]
+							= await this.runServiceAction(
+								route.service,
+							res,
+							req,
+							route,
+							params,
+							splats,
+							() => isAborted
+						);
+					}
 
-				// run after promise
-				if (route.onAfter) {
-					result = await this.Promise.method(route.onAfter, {route, res, req, params, splats, data: result})
+					if (isAborted) return;
+
+					// run after promise
+					if (route.onAfter) {
+						result = await this.Promise.method(route.onAfter, {route, res, req, params, splats, data: result})
+					}
+
+				} catch (err) {
+					this.logger.error("Route execution error", err);
+					if (!isAborted) {
+						try {
+							res.writeStatus('500 Internal Server Error');
+							res.end('Internal Server Error');
+						} catch(e){}
+					}
+					return;
 				}
 
 				// append cork
-				if (!res.aborted) {
-					res.cork(() => {
-						// write headers response
-						if (headers !== null) {
-							for (let key in headers) {
-								res.writeHeader(key, headers[key]);
+				if (!isAborted) {
+					try {
+						res.cork(() => {
+							// write headers response
+							if (headers !== null) {
+								for (let key in headers) {
+									res.writeHeader(key, headers[key]);
+								}
 							}
-						}
-						// write cookie response
-						if (cookies) {
-							for (let key in cookies) {
-								res.writeHeader('set-cookie', cookies[key]);
+							// write cookie response
+							if (cookies) {
+								for (let key in cookies) {
+									res.writeHeader('set-cookie', cookies[key]);
+								}
 							}
-						}
-
-						// write status response
-						if (statusCodeText !== null) {
-							res.writeStatus(statusCodeText);
-						}
-						res.end(result);
-					});
+							// write status response
+							if (statusCodeText !== null) {
+								res.writeStatus(statusCodeText);
+							}
+							res.end(result);
+						});
+					} catch (uWsError) {
+						this.logger.warn(
+							"uWS Response access failed (client aborted right inside execution):",
+							uWsError.message
+						);
+					}
 				}
-			});
 
+			});
 		},
 
 		/**
@@ -392,15 +439,19 @@ const UwsServer = {
 
 		/**
 		 * run action in service
-		 * @param {string} service
-		 * @param {HttpResponse} res
-		 * @param {HttpRequest} req
-		 * @param {RouteOptions} route
-		 * @param params
+		 * @param {string} [service]
+		 * @param {HttpResponse} [res]
+		 * @param {HttpRequest} [req]
+		 * @param {RouteOptions} [route]
+		 * @param {*} [params]
 		 * @param slashes
+		 * @param {Function} [isAbortedFn]
 		 * @return [result, headers, cookies, statusCodeText]
 		 */
-		async runServiceAction(service, res, req, route, params, slashes) {
+		async runServiceAction(service, res, req, route, params, slashes, isAbortedFn) {
+			if (isAbortedFn && isAbortedFn()) {
+				return [null, {}, [], null];
+			}
 			const cookieData = new CookieData(req, res);
 			/** @type RouteOptions */
 			const mockRoute = {
@@ -420,14 +471,33 @@ const UwsServer = {
 			// permission checks for post
 			if (route.method === 'post' && route.permission) {
 				if (route.permission.post) {
-					postData = await new Promise((resolve, reject) => {
-						readBody(res, resolve, reject);
-					});
+					try {
+						postData = await new Promise((resolve, reject) => {
+							// Если клиент отключился до чтения тела
+							if (isAbortedFn && isAbortedFn()) {
+								return reject(new Error("uWS Request Aborted"));
+							}
+							readBody(res, (data) => {
+								// Если клиент отключился в процессе чтения тела
+								if (isAbortedFn && isAbortedFn()) {
+									return reject(new Error("uWS Request Aborted"));
+								}
+								resolve(data);
+							}, reject);
+						});
+					} catch (bodyError) {
+						this.logger?.warn("Failed to read body or request aborted:", bodyError.message);
+						return [null, {}, [], null];
+					}
 				}
 				// permission check read files
 				// if (route.permission.files) {
 				//
 				// }
+			}
+
+			if (isAbortedFn && isAbortedFn()) {
+				return [null, {}, [], null];
 			}
 
 			const meta = {
@@ -436,25 +506,43 @@ const UwsServer = {
 				requestData
 			}
 			/** @type {string|ServiceRenderResponse} response */
-			const response = await this.broker.call(route.service, {
-				route: mockRoute,
-				postData: postData
-			}, {meta});
+			let response;
+
+			try {
+				/** @type {string|ServiceRenderResponse} response */
+				response = await this.broker.call(route.service, {
+					route: mockRoute,
+					postData: postData
+				}, {meta});
+			} catch (brokerError) {
+				this.logger?.error("Broker call failed:", brokerError);
+				return [null, {}, [], null];
+			}
+
+			if (isAbortedFn && isAbortedFn()) {
+				return [null, {}, [], null];
+			}
 
 			let headers = meta.headers ?? {};
 			let statusCode = meta.statusCode ?? null;
 			let statusCodeText = meta.statusCodeText ?? null;
 			// map response to data
-			if (response.result !== void 0) {
+			if (response && response.result !== void 0) {
 				result = response.result;
 			} else {
 				result = response;
 			}
 
 			let cookies = [];
-			for (let key in cookieData.resp) {
-				const value = cookieData.toHeader(key);
-				cookies.push(value)
+			if (cookieData && cookieData.resp) {
+				try {
+					for (let key in cookieData.resp) {
+						const value = cookieData.toHeader(key);
+						cookies.push(value)
+					}
+				} catch (cookieError) {
+					this.logger?.warn("Failed to process cookies for aborted request", cookieError.message);
+				}
 			}
 
 			return [result, headers, cookies, statusCodeText];
@@ -463,13 +551,14 @@ const UwsServer = {
 		/**
 		 * run action in controller
 		 *
-		 * @param {string} controller
-		 * @param {string} action
-		 * @param {HttpResponse} res
-		 * @param {HttpRequest} req
-		 * @param {RouteOptions} route
-		 * @param {*} params
-		 * @param {*} slashes
+		 * @param {string} [controller]
+		 * @param {string} [action]
+		 * @param {HttpResponse} [res]
+		 * @param {HttpRequest} [req]
+		 * @param {RouteOptions} [route]
+		 * @param {*} [params]
+		 * @param {*} [slashes]
+		 * @param {Function} [isAbortedFn]
 		 * @returns [controller, result, headers, cookies, statusCodeText]
 		 */
 		async runControllerAction(
@@ -479,7 +568,8 @@ const UwsServer = {
 			req,
 			route,
 			params,
-			slashes
+			slashes,
+			isAbortedFn
 		) {
 			if (!(this.settings.controllers[controller] ?? false)) {
 				return [null, `controller ${controller} not found`, null, null, null];
@@ -491,6 +581,7 @@ const UwsServer = {
 				res,
 				req,
 				broker: this.broker,
+				isAborted: isAbortedFn,
 				route: {
 					path: route.path,
 					method: route.method,
@@ -500,12 +591,17 @@ const UwsServer = {
 					keys: route.keys,
 					regex: route.regex,
 					params,
-					slashes
+					slashes,
 				},
 			});
 
+			// If action unknown
 			if (!(inst[action] ?? false)) {
 				return [null, `method ${action} for controller ${controller} not found`, null, null, null]
+			}
+			// If the client leaves before the action starts
+			if (isAbortedFn && isAbortedFn()) {
+				return [inst, null, null, null, null];
 			}
 
 			const result = await inst[action]();
@@ -514,8 +610,12 @@ const UwsServer = {
 
 			const cookies = [];
 			if (inst.cookieData) {
-				for (let key in inst.cookieData.resp) {
-					cookies.push(inst.cookieData.toHeader(key));
+				try {
+					for (let key in inst.cookieData.resp) {
+						cookies.push(inst.cookieData.toHeader(key));
+					}
+				} catch (cookieError) {
+					this.logger?.warn("Failed to parse cookies for aborted request", cookieError.message);
 				}
 			}
 			return [inst, result, headers, cookies, statusCodeText];
