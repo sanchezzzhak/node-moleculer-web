@@ -1,6 +1,6 @@
 const qs = require('qs');
 
-const {regexExecAll, convertIpv6toIpv4, isValidIpv6, getFullIpv6} = require("./utils/helpers");
+const {convertIpv6toIpv4, isValidIpv6, getFullIpv6} = require("./utils/helpers");
 
 /** @typedef {import("uWebSockets.js").HttpRequest} HttpRequest */
 /** @typedef {import("uWebSockets.js").HttpResponse} HttpResponse */
