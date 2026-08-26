@@ -45,6 +45,7 @@ class TestController extends AbstractController {
 	}
 
 	async actionTestPost() {
+		this.initRequest();
 		const data = await this.readBody();
 		return this.asJson(JSON.parse(data));
 	}

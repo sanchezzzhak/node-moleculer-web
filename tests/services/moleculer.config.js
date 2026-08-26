@@ -1,6 +1,7 @@
 // require('dotenv').config({ override: true });
 
 module.exports = {
+  namespace: 'test-nmw',
   nodeID: 'TEST',
   transporter: 'TCP',
   registry: {

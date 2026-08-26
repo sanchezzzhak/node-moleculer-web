@@ -1,4 +1,4 @@
-const {assert} = require('chai');
+const {assert, expect} = require('chai');
 const {resolve} = require('node:path');
 const {ServiceBroker, Service} = require('moleculer');
 const axios = require("axios");
@@ -154,7 +154,7 @@ describe('tests', function () {
 		};
 		const response = await instance.post('test-post', data);
 		assert.equal(response.status, 200);
-		assert.equal(response.data, data)
+		expect(data).to.deep.equal(response.data);
 	});
 
 	it('test client connection abort DURING large POST upload (should NOT crash)', async () => {

@@ -473,12 +473,12 @@ const UwsServer = {
 				if (route.permission.post) {
 					try {
 						postData = await new Promise((resolve, reject) => {
-							// Если клиент отключился до чтения тела
+							// If the client disconnects before reading the body
 							if (isAbortedFn && isAbortedFn()) {
 								return reject(new Error("uWS Request Aborted"));
 							}
 							readBody(res, (data) => {
-								// Если клиент отключился в процессе чтения тела
+								// If the client disconnects while reading the body
 								if (isAbortedFn && isAbortedFn()) {
 									return reject(new Error("uWS Request Aborted"));
 								}
